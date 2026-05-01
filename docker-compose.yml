@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: testbench
+      POSTGRES_USER: testbench
+      POSTGRES_PASSWORD: testbench
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testbench"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: cryptotherm123
+      DOCKER_INFLUXDB_INIT_ORG: cryptotherm
+      DOCKER_INFLUXDB_INIT_BUCKET: miners
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ct-testbench-influx-token
+    volumes:
+      - influx_data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://testbench:testbench@db:5432/testbench
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ct-testbench-influx-token
+      INFLUX_ORG: cryptotherm
+      INFLUX_BUCKET: miners
+    depends_on:
+      db:
+        condition: service_healthy
+    network_mode: host  # needed for UDP discovery broadcast
+    volumes:
+      - ./server:/app
+
+volumes:
+  postgres_data:
+  influx_data:

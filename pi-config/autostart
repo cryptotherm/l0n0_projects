@@ -1,0 +1,11 @@
+# CT TestBench Kiosk — no desktop, no taskbar
+# Kill any system desktop/panel that may have started
+pkill -f pcmanfm-pi 2>/dev/null || true
+pkill -f wf-panel-pi 2>/dev/null || true
+
+# Disable screen blanking
+wlr-randr --output HDMI-A-1 --mode 1920x1080@60 2>/dev/null || true
+swayidle -w timeout 0 '' 2>/dev/null &
+
+# Launch kiosk
+# kiosk now managed by ct-kiosk.service (systemd user)

@@ -1,0 +1,1244 @@
+"""
+Kiosk router — 7" touchscreen UI for CT TestBench Pi.
+Full 1920x1080, responsive em-based sizing.
+High-contrast dark theme, no grey text, large fonts.
+v2: chip map tab, batch mode, temps on cards, keyboard shortcuts.
+"""
+
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+router = APIRouter()
+
+POPULAR_POOLS = [
+    ("-- Custom --", ""),
+    ("Luxor BTC (700)", "stratum+tcp://btc.global.luxor.tech:700"),
+    ("Luxor BTC (3333)", "stratum+tcp://btc.global.luxor.tech:3333"),
+    ("Luxor BTC (25)", "stratum+tcp://btc.global.luxor.tech:25"),
+    ("F2Pool BTC", "stratum+tcp://btc.f2pool.com:1314"),
+    ("ViaBTC BTC", "stratum+tcp://btc.viabtc.io:3333"),
+    ("AntPool BTC", "stratum+tcp://stratum.antpool.com:3333"),
+    ("Foundry USA", "stratum+tcp://btc.foundryusapool.com:3333"),
+    ("Braiins Pool", "stratum+tcp://stratum.slushpool.com:3333"),
+    ("Poolin BTC", "stratum+tcp://btc.ss.poolin.com:443"),
+    ("BTC.com", "stratum+tcp://btc.btc.com:3333"),
+    ("MARA Pool", "stratum+tcp://btc.mara.com:3333"),
+    ("SpiderPool", "stratum+tcp://btc.spider.xyz:3333"),
+    ("EMCD BTC", "stratum+tcp://btc.emcd.io:3333"),
+    ("NiceHash BTC", "stratum+tcp://btc.2miners.com:1010"),
+    ("CleanSpark", "stratum+tcp://btc.cleanspark.com:3333"),
+]
+
+POOL_OPTIONS_HTML = "\n".join(
+    f'<option value="{url}">{name}</option>' for name, url in POPULAR_POOLS
+)
+
+
+@router.get("/kiosk", response_class=HTMLResponse)
+async def kiosk():
+    return HTMLResponse(content=KIOSK_HTML.replace("__POOL_OPTIONS__", POOL_OPTIONS_HTML))
+
+
+KIOSK_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CT TestBench</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  font-family: Arial, 'DejaVu Sans', sans-serif;
+  background: #080808; color: #f0f0f0;
+  width: 100vw; height: 100vh;
+  overflow: hidden; display: flex; flex-direction: column;
+  font-size: clamp(16px, 1.8vw, 26px);
+}
+
+/* Header */
+.hdr {
+  background: #0e0e0e; border-bottom: 2px solid #0055cc;
+  padding: 0.45em 1em; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0; gap: 0.5em;
+}
+.hdr-title { font-size: 1.3em; font-weight: bold; color: #4da6ff; letter-spacing: 1px; white-space: nowrap; }
+.hdr-right { display: flex; align-items: center; gap: 0.8em; flex-shrink: 0; }
+.clock { font-size: 0.88em; color: #aaa; font-weight: 500; }
+.dot { width: 0.55em; height: 0.55em; border-radius: 50%; display: inline-block; margin-right: 0.3em; }
+.dg { background:#00cc44; box-shadow:0 0 4px #00cc44; }
+.do { background:#ff9900; box-shadow:0 0 4px #ff9900; }
+.dr { background:#cc2200; box-shadow:0 0 4px #cc2200; }
+.api-st { font-size: 0.82em; color: #bbb; }
+
+/* Batch button */
+.btn-batch {
+  padding: 0.35em 0.8em; border: 2px solid #555; border-radius: 4px;
+  font-size: 0.82em; font-weight: bold; cursor: pointer;
+  background: #1e1e1e; color: #aaa; white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-batch.on { background: #003311; border-color: #00cc44; color: #00cc44; }
+.btn-batch:active { opacity: 0.7; }
+.batch-queue { font-size: 0.8em; color: #ffaa00; font-weight: bold; white-space: nowrap; }
+
+/* Tab bar */
+.tabs {
+  background: #0a0a0a; border-bottom: 2px solid #1a1a1a;
+  display: flex; flex-shrink: 0;
+}
+.tab {
+  flex: 1; padding: 0.55em 0.5em; text-align: center;
+  font-size: 0.9em; font-weight: bold; color: #777;
+  cursor: pointer; border-bottom: 3px solid transparent;
+  transition: color 0.15s;
+}
+.tab.active { color: #4da6ff; border-bottom-color: #4da6ff; background: #0d1a2e; }
+.tab:active { opacity: 0.7; }
+
+/* Pages */
+.page { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.page.active { display: flex; }
+
+/* ── MINERS page ── */
+.miners-layout { display: flex; flex: 1; overflow: hidden; }
+
+.miner-list {
+  width: 36%; border-right: 2px solid #1a1a1a;
+  overflow-y: auto; padding: 0.4em; flex-shrink: 0;
+}
+.miner-list-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.3em 0.2em 0.5em; gap: 0.4em;
+}
+
+.miner-card {
+  background: #131313; border: 1px solid #282828;
+  border-left: 4px solid #282828; border-radius: 5px;
+  padding: 0.55em 0.65em 0 0.65em; margin-bottom: 0.4em;
+  cursor: pointer; user-select: none; overflow: hidden;
+  animation: fadeIn 0.4s ease;
+}
+.miner-card:active { opacity: 0.7; }
+.miner-card.selected { border-color: #0055cc; background: #0c1a30; }
+.miner-card.pass    { border-left-color: #00cc44; }
+.miner-card.fail    { border-left-color: #cc2200; }
+.miner-card.warn    { border-left-color: #ff9900; }
+.miner-card.testing { border-left-color: #4da6ff; }
+
+.mc-body { padding-bottom: 0.4em; }
+.mc-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.mc-id   { font-size: 1.05em; font-weight: bold; color: #4da6ff; }
+.mc-mdl  { font-size: 0.88em; color: #ddd; margin-top: 0.15em; font-weight: 500; }
+.mc-inf  { font-size: 0.8em; color: #aaa; margin-top: 0.12em; }
+.mc-badges { display: flex; gap: 0.3em; align-items: center; flex-wrap: wrap; }
+
+/* Mini hashrate bar at bottom of card */
+.mc-hr-bar-wrap { height: 4px; background: #1a1a1a; margin-top: 0.3em; }
+.mc-hr-bar { height: 4px; border-radius: 0 2px 2px 0; transition: width 0.5s; }
+
+/* Temp badge */
+.tmp-bdg {
+  display:inline-block; padding:0.15em 0.4em; border-radius:3px;
+  font-size:0.72em; font-weight:bold; white-space:nowrap;
+}
+.tmp-g { background:#002211; color:#00cc44; }
+.tmp-o { background:#332200; color:#ffaa00; }
+.tmp-r { background:#330008; color:#ff5555; }
+
+/* PSU / CTL fault badges */
+.bdg-fault { background:#550000; color:#ff9999; }
+
+/* Detail panel */
+.detail { flex: 1; padding: 0.4em 0.5em; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3em; }
+.empty-state {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1em; padding: 2em;
+}
+.empty-icon { font-size: 3em; opacity: 0.4; }
+.empty-msg  { color: #aaa; font-size: 1em; text-align: center; line-height: 1.6; }
+.empty-actions { display: flex; gap: 0.6em; flex-wrap: wrap; justify-content: center; }
+
+/* Detail tabs */
+.dtabs { display: flex; gap: 0; border-bottom: 2px solid #1e1e1e; margin-bottom: 0.4em; flex-shrink: 0; }
+.dtab {
+  padding: 0.4em 1em; font-size: 0.85em; font-weight: bold; color: #777;
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: color 0.15s;
+}
+.dtab.active { color: #4da6ff; border-bottom-color: #4da6ff; }
+
+.dsec { background: #111111; border: 1px solid #242424; border-radius: 5px; padding: 0.55em 0.7em; }
+.dsec h3 { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 0.45em; border-bottom: 1px solid #1e1e1e; padding-bottom: 0.3em; }
+.drow { display: flex; justify-content: space-between; font-size: 0.88em; margin-bottom: 0.3em; }
+.drow .lbl { color: #aaa; }
+.drow .val { color: #f0f0f0; font-weight: 500; text-align: right; max-width: 58%; word-break: break-all; }
+.hb-grid { display: flex; gap: 0.4em; }
+.hb-bar { flex: 1; background: #1a1a1a; border: 1px solid #282828; border-radius: 4px; padding: 0.5em 0.3em; text-align: center; }
+.hb-pct { font-size: 1.4em; font-weight: bold; }
+.hb-sub { font-size: 0.72em; color: #aaa; margin-top: 0.15em; }
+.hb-bar.hg .hb-pct { color: #00cc44; }
+.hb-bar.hw .hb-pct { color: #ff9900; }
+.hb-bar.hb .hb-pct { color: #cc2200; }
+.ai-sev { display:inline-block; padding:0.2em 0.6em; border-radius:3px; font-size:0.78em; font-weight:bold; margin-bottom:0.4em; }
+.sok { background:#003311; color:#00cc44; }
+.swn { background:#332200; color:#ffaa00; }
+.scr { background:#330008; color:#ff4444; }
+.ai-txt { font-size: 0.85em; color: #ddd; line-height: 1.55; }
+
+/* Chip Map */
+.chip-map-wrap { padding: 0.4em 0; }
+.chip-board-section { margin-bottom: 1em; }
+.chip-board-title { font-size: 0.82em; color: #4da6ff; font-weight: bold; margin-bottom: 0.35em; }
+.chip-grid { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 0.3em; }
+.chip {
+  width: 1.1em; height: 1.1em; border-radius: 2px;
+  display: inline-block; cursor: default;
+}
+.chip-g { background: #00aa33; }
+.chip-o { background: #cc7700; }
+.chip-r { background: #cc2200; }
+.chip-d { background: #660000; }
+.chip-board-temp { font-size: 0.78em; color: #bbb; margin-top: 0.2em; }
+.chip-no-data {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 6em; color: #bbb; font-size: 0.9em; text-align: center;
+}
+
+/* Badges */
+.bdg { display:inline-block; padding:0.2em 0.5em; border-radius:3px; font-size:0.75em; font-weight:bold; white-space:nowrap; }
+.bp { background:#003311; color:#00cc44; }
+.bf { background:#330008; color:#ff4444; }
+.bw { background:#332200; color:#ffaa00; }
+.bt { background:#00173a; color:#4da6ff; }
+.bn { background:#1e1e1e; color:#aaa; }
+
+/* Actions */
+.actions { display: flex; gap: 0.4em; flex-wrap: wrap; }
+.btn {
+  flex: 1; min-width: 4.5em; padding: 0.75em 0.4em;
+  border: none; border-radius: 5px; font-size: 0.88em; font-weight: bold;
+  cursor: pointer; text-align: center; touch-action: manipulation; color: #fff;
+}
+.btn:active { opacity: 0.6; }
+.bb { background:#0055cc; }
+.bg { background:#006622; }
+.br { background:#660011; }
+.bd { background:#1e1e1e; color:#bbb; }
+.btn-sm {
+  padding: 0.38em 0.9em; border: none; border-radius: 4px;
+  font-size: 0.85em; font-weight: bold; cursor: pointer;
+  background: #0055cc; color: #fff; white-space: nowrap;
+}
+.btn-sm:active { opacity: 0.7; }
+.btn-sm.gray { background: #252525; color: #ccc; }
+.btn-sm.green { background: #006622; color: #fff; }
+.btn-sm.red { background: #660011; color: #fff; }
+
+/* Bottom stat bar */
+.statbar {
+  background: #0a0a0a; border-top: 2px solid #1a1a1a;
+  padding: 0.35em 0.8em; display: flex; gap: 0.5em; align-items: center; flex-shrink: 0;
+}
+.pill { background:#141414; border:1px solid #282828; border-radius:20px; padding:0.28em 0.7em; font-size:0.82em; color:#bbb; white-space:nowrap; }
+.pill b { color:#4da6ff; }
+
+/* ── SCAN page ── */
+.scan-page { flex: 1; padding: 1em; overflow-y: auto; display: flex; flex-direction: column; gap: 0.8em; }
+.scan-section { background: #111; border: 1px solid #242424; border-radius: 6px; padding: 0.8em 1em; }
+.scan-section h2 { font-size: 1em; color: #4da6ff; margin-bottom: 0.7em; font-weight: bold; }
+.input-row { display: flex; gap: 0.5em; align-items: center; margin-bottom: 0.5em; }
+.input-row label { font-size: 0.88em; color: #ccc; min-width: 7em; }
+.inp {
+  flex: 1; background: #0d0d0d; border: 1px solid #333; border-radius: 4px;
+  color: #f0f0f0; padding: 0.48em 0.65em; font-size: 0.9em;
+}
+.inp:focus { outline: none; border-color: #0055cc; }
+select.inp option { background: #111; color: #f0f0f0; }
+.scan-log {
+  background: #090909; border: 1px solid #1e1e1e; border-radius: 4px;
+  padding: 0.5em; font-size: 0.8em; color: #bbb; font-family: monospace;
+  height: 6em; overflow-y: auto; white-space: pre-wrap;
+}
+
+/* ── SETTINGS page ── */
+.settings-page { flex: 1; padding: 1em; overflow-y: auto; display: flex; flex-direction: column; gap: 0.8em; }
+.settings-section { background: #111; border: 1px solid #242424; border-radius: 6px; padding: 0.8em 1em; }
+.settings-section h2 { font-size: 1em; color: #4da6ff; margin-bottom: 0.7em; font-weight: bold; }
+.setting-row { display: flex; gap: 0.5em; align-items: center; margin-bottom: 0.6em; }
+.setting-row label { font-size: 0.88em; color: #ccc; min-width: 9em; flex-shrink: 0; }
+.info-row { display: flex; justify-content: space-between; font-size: 0.88em; margin-bottom: 0.4em; }
+.info-row .lbl { color: #bbb; }
+.info-row .val { color: #f0f0f0; font-weight: 500; }
+
+/* Spinner */
+.spinner { width: 1.4em; height: 1.4em; border: 3px solid #1a1a1a; border-top-color: #4da6ff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 0.4em; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Card animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes green-pulse {
+  0%   { background: #131313; }
+  25%  { background: #003311; }
+  75%  { background: #003311; }
+  100% { background: #131313; }
+}
+@keyframes red-pulse {
+  0%   { background: #131313; }
+  25%  { background: #330008; }
+  75%  { background: #330008; }
+  100% { background: #131313; }
+}
+.flash-green { animation: green-pulse 2s ease; }
+.flash-red   { animation: red-pulse 2s ease; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #282828; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <span class="hdr-title">⚙ CT TESTBENCH</span>
+  <div class="hdr-right">
+    <span class="api-st" id="api-st"><span class="dot do"></span>Connecting...</span>
+    <span class="batch-queue" id="batch-queue" style="display:none"></span>
+    <button class="btn-batch" id="batch-btn" onclick="toggleBatch()">⚡ BATCH</button>
+    <span class="clock" id="clk"></span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('miners')" id="tab-miners">⛏ Miners</div>
+  <div class="tab" onclick="showTab('scan')" id="tab-scan">📡 Discovery</div>
+  <div class="tab" onclick="showTab('settings')" id="tab-settings">⚙ Settings</div>
+</div>
+
+<!-- MINERS PAGE -->
+<div class="page active" id="page-miners">
+  <div class="miners-layout">
+    <div class="miner-list">
+      <div class="miner-list-hdr">
+        <span style="font-size:0.85em;color:#bbb;font-weight:500" id="miner-count">No miners</span>
+        <button class="btn-sm" onclick="load()">↻</button>
+      </div>
+      <div id="miner-list-body">
+        <div class="empty-state">
+          <div class="empty-icon">⛏</div>
+          <div class="empty-msg">No miners tested yet.<br>Use Discovery to find miners.</div>
+        </div>
+      </div>
+    </div>
+    <div class="detail" id="detail">
+      <div class="empty-state">
+        <div class="empty-icon">👈</div>
+        <div class="empty-msg">Tap a miner to view details</div>
+      </div>
+    </div>
+  </div>
+  <div class="statbar">
+    <div class="pill">Total: <b id="st">0</b></div>
+    <div class="pill">✅ Pass: <b id="sp">0</b></div>
+    <div class="pill">❌ Fail: <b id="sf">0</b></div>
+    <div class="pill">🔄 Testing: <b id="sw">0</b></div>
+    <div style="margin-left:auto;display:flex;gap:0.4em">
+      <button class="btn-sm gray" onclick="showTab('scan')">📡 Discovery</button>
+      <button class="btn-sm" onclick="load()">↻ Refresh</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCAN PAGE -->
+<div class="page" id="page-scan">
+  <div class="scan-page">
+    <div class="scan-section">
+      <h2>📡 Continuous Network Discovery</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8em">
+        <div id="poll-status-badge" style="font-size:0.9em;color:#bbb;font-weight:500">Loading...</div>
+        <button id="poll-toggle-btn" class="btn bd" style="min-width:7em" onclick="togglePolling()">...</button>
+      </div>
+      <div class="input-row">
+        <label>Network Range</label>
+        <input class="inp" id="poll-cidr" type="text" value="10.0.0.0/24">
+        <button class="btn-sm" onclick="updatePollCidr()" style="margin-left:0.4em">Set</button>
+      </div>
+      <div class="input-row">
+        <label>Scan Interval</label>
+        <select class="inp" id="poll-interval" onchange="updatePollInterval()">
+          <option value="30">30 seconds</option>
+          <option value="60" selected>1 minute</option>
+          <option value="120">2 minutes</option>
+          <option value="300">5 minutes</option>
+        </select>
+      </div>
+      <div style="margin-top:0.7em">
+        <div style="font-size:0.82em;color:#bbb;margin-bottom:0.3em;font-weight:500">Discovery Log</div>
+        <div class="scan-log" id="scan-log">Polling active — miners discovered automatically.</div>
+      </div>
+    </div>
+
+    <div class="scan-section">
+      <h2>⚡ Test Specific Miner</h2>
+      <div class="input-row">
+        <label>IP Address</label>
+        <input class="inp" id="test-ip" type="text" placeholder="e.g. 10.0.0.137">
+      </div>
+      <div class="input-row">
+        <label>Run AI Diagnosis</label>
+        <input type="checkbox" id="run-ai" checked style="width:1.4em;height:1.4em;cursor:pointer">
+      </div>
+      <div style="display:flex;gap:0.5em;margin-top:0.4em">
+        <button class="btn bb" style="flex:1" onclick="testMiner()">▶ Test Now</button>
+        <button class="btn bg" style="flex:1" onclick="showTab('miners')">← Miners</button>
+      </div>
+      <div id="test-result" style="margin-top:0.6em;font-size:0.85em;color:#bbb"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS PAGE -->
+<div class="page" id="page-settings">
+  <div class="settings-page">
+
+    <!-- AI / LLM -->
+    <div class="settings-section">
+      <h2>🤖 AI Diagnosis</h2>
+      <div class="setting-row">
+        <label>OpenAI API Key</label>
+        <input class="inp" id="openai-key" type="password" placeholder="sk-...">
+      </div>
+      <div class="setting-row">
+        <label>Model</label>
+        <select class="inp" id="openai-model">
+          <option value="gpt-4o">gpt-4o (recommended)</option>
+          <option value="gpt-4o-mini">gpt-4o-mini (faster)</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="ct-llm">ct-llm (local, port 8080)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>API Base URL</label>
+        <input class="inp" id="openai-base" placeholder="leave blank for OpenAI default">
+      </div>
+      <button class="btn-sm green" onclick="saveAISettings()">💾 Save AI Settings</button>
+      <div id="ai-save-result" style="margin-top:0.4em;font-size:0.85em;color:#bbb"></div>
+    </div>
+
+    <!-- Worker Profiles -->
+    <div class="settings-section">
+      <h2>👷 Worker Profiles</h2>
+      <div id="worker-list" style="margin-bottom:0.6em;font-size:0.88em;color:#bbb">Loading...</div>
+      <div style="background:#0d0d0d;border:1px solid #242424;border-radius:4px;padding:0.7em;margin-top:0.4em">
+        <div style="font-size:0.85em;color:#4da6ff;margin-bottom:0.55em;font-weight:bold">➕ New / Edit Profile</div>
+        <input type="hidden" id="wp-id" value="">
+        <div class="setting-row">
+          <label>Name</label>
+          <input class="inp" id="wp-name" placeholder="e.g. Luxor Main">
+        </div>
+        <div class="setting-row">
+          <label>Pool URL</label>
+          <div style="flex:1;display:flex;flex-direction:column;gap:0.3em">
+            <select class="inp" id="wp-pool-preset" onchange="applyPoolPreset()">
+              __POOL_OPTIONS__
+            </select>
+            <input class="inp" id="wp-pool" placeholder="stratum+tcp://btc.global.luxor.tech:700">
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Backup Pool</label>
+          <div style="flex:1;display:flex;flex-direction:column;gap:0.3em">
+            <select class="inp" id="wp-pool2-preset" onchange="applyPool2Preset()">
+              __POOL_OPTIONS__
+            </select>
+            <input class="inp" id="wp-pool2" placeholder="(optional)">
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Worker Template</label>
+          <input class="inp" id="wp-worker" placeholder="cryptotherm.{ct_id}">
+        </div>
+        <div style="font-size:0.78em;color:#aaa;margin:0 0 0.55em 9em">
+          Variables: <b>{ct_id}</b> &nbsp; {serial} &nbsp; {mac} &nbsp; {id}
+        </div>
+        <div class="setting-row">
+          <label>Password</label>
+          <input class="inp" id="wp-pass" value="x">
+        </div>
+        <div class="setting-row">
+          <label>Site Label</label>
+          <input class="inp" id="wp-site" placeholder="e.g. CTHome Rack A">
+        </div>
+        <div style="display:flex;gap:0.5em;margin-top:0.55em">
+          <button class="btn-sm green" onclick="saveWorkerProfile()">💾 Save Profile</button>
+          <button class="btn-sm gray" onclick="clearWorkerForm()">✕ Clear</button>
+        </div>
+      </div>
+      <div style="margin-top:0.8em">
+        <div style="font-size:0.85em;color:#4da6ff;margin-bottom:0.45em;font-weight:bold">⚡ Push to Miners</div>
+        <div class="setting-row">
+          <label>Profile</label>
+          <select class="inp" id="wp-assign-profile" style="flex:1"></select>
+        </div>
+        <div class="setting-row">
+          <label>Target</label>
+          <select class="inp" id="wp-assign-target" style="flex:1">
+            <option value="all">All miners on bench</option>
+            <option value="selected">Selected miner only</option>
+          </select>
+        </div>
+        <button class="btn-sm" style="background:#006622;color:#fff" onclick="assignWorkers()">▶ Push Worker Config</button>
+        <div id="assign-result" style="margin-top:0.4em;font-size:0.85em;color:#bbb"></div>
+      </div>
+    </div>
+
+    <!-- Printer -->
+    <div class="settings-section">
+      <h2>🖨 Label Printer</h2>
+      <div class="setting-row">
+        <label>Printer IP</label>
+        <input class="inp" id="printer-ip" type="text" placeholder="e.g. 10.0.0.119">
+      </div>
+      <div class="setting-row">
+        <label>Model</label>
+        <input class="inp" id="printer-model" type="text" value="QL-810W">
+      </div>
+      <button class="btn-sm green" onclick="savePrinter()">💾 Save &amp; Test Print</button>
+    </div>
+
+    <!-- Miner Credentials -->
+    <div class="settings-section">
+      <h2>🔧 Miner Credentials</h2>
+      <div class="setting-row">
+        <label>Default Password</label>
+        <input class="inp" id="miner-pass" type="password" value="root">
+      </div>
+      <button class="btn-sm green" onclick="saveCreds()">💾 Save</button>
+    </div>
+
+    <!-- System Status -->
+    <div class="settings-section">
+      <h2>🌐 System Status</h2>
+      <div class="info-row"><span class="lbl">Server</span><span class="val" id="srv-status">...</span></div>
+      <div class="info-row"><span class="lbl">DB</span><span class="val" id="db-status">...</span></div>
+      <div class="info-row"><span class="lbl">Platform API</span><span class="val" id="plat-status">...</span></div>
+      <div class="info-row"><span class="lbl">Host</span><span class="val" id="pi-ip">...</span></div>
+      <button class="btn-sm" style="margin-top:0.5em" onclick="loadHealth()">↻ Refresh</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+var miners = [], selId = null, ws = null;
+var batchMode = false, batchQueue = {}, batchPending = 0;
+var detailTab = 'details'; // 'details' or 'chipmap'
+var prevStatuses = {}; // track status changes for flash
+
+// ── Audio beep ────────────────────────────────────────────────────────────────
+function beep(freq, duration, type) {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = type || 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function tick() {
+  var n = new Date();
+  document.getElementById('clk').textContent =
+    n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tick,1000); tick();
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(t) {
+  ['miners','scan','settings'].forEach(function(id) {
+    document.getElementById('page-'+id).classList.toggle('active', id===t);
+    document.getElementById('tab-'+id).classList.toggle('active', id===t);
+  });
+  if (t==='settings') { loadHealth(); loadWorkerProfiles(); loadAISettings(); }
+  if (t==='scan') loadPollStatus();
+}
+
+// ── Status classifier ─────────────────────────────────────────────────────────
+function sc(m) {
+  var s = m.last_test_result || m.status || '';
+  var hr = m.rt_hashrate || 0;
+  if (hr > 50) return 'pass';
+  if (s==='psu_fault' || s==='control_board_fault') return 'fail';
+  if (s==='pass'||s==='ready_to_deploy') return 'pass';
+  if (s==='fail'||s==='needs_repair'||s==='parts_unit') return 'fail';
+  if (s==='testing') return 'testing';
+  if (hr === 0 && s && s!=='new' && s!=='') return 'fail';
+  return 'warn';
+}
+
+function badge(m) {
+  var c = sc(m);
+  var s = m.last_test_result || m.status || '';
+  var L = {pass:'PASS', fail:'FAIL', testing:'TESTING', warn:'WARN'};
+  var C = {pass:'bp', fail:'bf', testing:'bt', warn:'bw'};
+  var extra = '';
+  if (s==='psu_fault') extra = ' <span class="bdg bdg-fault">PSU FAULT</span>';
+  if (s==='control_board_fault') extra = ' <span class="bdg bdg-fault">CTL FAULT</span>';
+  return '<span class="bdg '+(C[c]||'bn')+'">'+(L[c]||'?')+'</span>'+extra;
+}
+
+// ── Temperature helpers ───────────────────────────────────────────────────────
+function maxTemp(m) {
+  var hbs = m.hashboards || [];
+  var t = 0;
+  for (var i=0;i<hbs.length;i++) {
+    var hb = hbs[i];
+    var v = hb.temp_max || hb.temp || 0;
+    if (v > t) t = v;
+  }
+  return t;
+}
+
+function tempBadge(m) {
+  var t = maxTemp(m);
+  if (!t) return '';
+  var cls = t < 75 ? 'tmp-g' : t <= 85 ? 'tmp-o' : 'tmp-r';
+  return '<span class="tmp-bdg '+cls+'">🌡'+Math.round(t)+'°C</span>';
+}
+
+// ── Load miners ───────────────────────────────────────────────────────────────
+function load() {
+  document.getElementById('api-st').innerHTML = '<span class="dot do"></span>Loading...';
+  fetch('/api/miners')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(data){
+      miners = Array.isArray(data) ? data : (data.miners || []);
+      renderList();
+      stats();
+      document.getElementById('api-st').innerHTML = '<span class="dot dg"></span>Online';
+    })
+    .catch(function(e){
+      document.getElementById('api-st').innerHTML = '<span class="dot dr"></span>'+e.message;
+    });
+}
+
+function stats() {
+  document.getElementById('st').textContent = miners.length;
+  document.getElementById('sp').textContent = miners.filter(function(m){return sc(m)==='pass';}).length;
+  document.getElementById('sf').textContent = miners.filter(function(m){return sc(m)==='fail';}).length;
+  document.getElementById('sw').textContent = miners.filter(function(m){return m.status==='testing';}).length;
+  document.getElementById('miner-count').textContent = miners.length + ' miner' + (miners.length!==1?'s':'');
+}
+
+function renderList() {
+  var el = document.getElementById('miner-list-body');
+  if (!miners.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⛏</div><div class="empty-msg">No miners tested yet.<br>Discovery is running.</div></div>';
+    return;
+  }
+  var order = {fail:0,warn:1,testing:2,pass:3};
+  var sorted = miners.slice().sort(function(a,b){ return (order[sc(a)]||4)-(order[sc(b)]||4); });
+  el.innerHTML = sorted.map(function(m){
+    var worker = m.worker ? m.worker.split('.').slice(-1)[0] : '';
+    var s = sc(m);
+    var hrPct = Math.min(100, ((m.rt_hashrate||0)/110)*100);
+    var barColor = s==='pass'?'#00cc44':s==='fail'?'#cc2200':s==='testing'?'#4da6ff':'#ff9900';
+    var tb = tempBadge(m);
+    return '<div class="miner-card '+s+(m.id===selId?' selected':'')+'" id="mc-'+m.id+'" onclick="sel('+m.id+')">'+
+      '<div class="mc-body">'+
+        '<div class="mc-row">'+
+          '<span class="mc-id">'+(m.ct_id||'CT-????')+'</span>'+
+          '<div class="mc-badges">'+badge(m)+(tb?' '+tb:'')+'</div>'+
+        '</div>'+
+        '<div class="mc-mdl">'+(m.model||m.miner_type||'Unknown')+'</div>'+
+        '<div class="mc-inf">'+m.ip_address+
+          (m.rt_hashrate?' &bull; '+m.rt_hashrate.toFixed(1)+' TH/s':'')+
+          (worker?' &bull; '+worker:'')+
+          (m.test_count?' &bull; '+m.test_count+'x':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="mc-hr-bar-wrap">'+
+        '<div class="mc-hr-bar" style="width:'+hrPct+'%;background:'+barColor+'"></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function sel(id) {
+  selId = id;
+  renderList();
+  var m = miners.filter(function(x){return x.id===id;})[0];
+  if (m) renderDetail(m);
+}
+
+function rowc(l,v) {
+  return '<div style="display:flex;justify-content:space-between;margin-bottom:0.25em;gap:0.4em">'+
+    '<span style="color:#bbb;white-space:nowrap;font-size:0.88em">'+l+'</span>'+
+    '<span style="color:#f0f0f0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%;font-size:0.88em;font-weight:500">'+v+'</span>'+
+  '</div>';
+}
+
+// ── Chip map rendering ────────────────────────────────────────────────────────
+function chipCountForModel(model) {
+  if (!model) return 76;
+  var m = model.toLowerCase();
+  if (m.indexOf('s19a') >= 0) return 72;
+  if (m.indexOf('s19') >= 0) return 76;
+  if (m.indexOf('m30s+') >= 0 || m.indexOf('m30s plus') >= 0) return 105;
+  if (m.indexOf('m30') >= 0) return 105;
+  return 76;
+}
+
+function renderChipMap(m) {
+  var hbs = (m.hashboards || []).filter(function(hb){
+    return (hb.chip_count > 0 || hb.expected_chips > 0);
+  });
+  if (!hbs.length) {
+    return '<div class="chip-no-data">No chip data — run test to populate</div>';
+  }
+  var modelChips = chipCountForModel(m.model || m.miner_type);
+  var html = '<div class="chip-map-wrap">';
+  hbs.forEach(function(hb) {
+    var expected = hb.expected_chips || modelChips;
+    var alive = hb.chip_count || expected;
+    var dead = Math.max(0, expected - alive);
+    var health = hb.health_pct != null ? hb.health_pct : (alive / expected * 100);
+    var cols = expected <= 76 ? 19 : (expected <= 105 ? 21 : 19);
+    var rows = Math.ceil(expected / cols);
+    // color for alive chips
+    var chipCls = health >= 85 ? 'chip-g' : health >= 60 ? 'chip-o' : 'chip-r';
+
+    html += '<div class="chip-board-section">';
+    html += '<div class="chip-board-title">HB' + hb.index + ' — ' + alive + '/' + expected + ' chips';
+    if (health != null) html += ' (' + Math.round(health) + '%)';
+    html += '</div>';
+    html += '<div class="chip-grid">';
+    for (var i = 0; i < expected; i++) {
+      var isDead = (i >= expected - dead);
+      html += '<div class="chip ' + (isDead ? 'chip-d' : chipCls) + '" title="Chip ' + (i+1) + (isDead?' DEAD':'') + '"></div>';
+    }
+    html += '</div>';
+    var t = hb.temp_max || hb.temp || 0;
+    if (t) {
+      var tCls = t < 75 ? 'color:#00cc44' : t <= 85 ? 'color:#ffaa00' : 'color:#ff5555';
+      html += '<div class="chip-board-temp">Temp: <span style="' + tCls + ';font-weight:bold">' + Math.round(t) + '°C</span></div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderDetail(m) {
+  var hbs = m.hashboards||[], fans = m.fan_speeds||[];
+  var sv = m.ai_severity||'ok';
+  var svCls = sv==='critical'?'scr':sv==='warning'?'swn':'sok';
+  var scResult = sc(m);
+  var isHashing = (m.rt_hashrate||0) > 50;
+  var statusLabel = isHashing ? '✅ PASS — HASHING'
+    : scResult==='pass' ? '✅ PASS'
+    : scResult==='fail' ? '❌ NEEDS REPAIR'
+    : scResult==='testing' ? '🔄 TESTING'
+    : '⏳ PENDING';
+  var statusBg = isHashing || scResult==='pass' ? '#005500'
+    : scResult==='fail' ? '#550008'
+    : scResult==='testing' ? '#001133'
+    : '#1a1a1a';
+
+  // Hashboard mini grid
+  var hbMini = '';
+  var realHbs = hbs.filter(function(hb){ return hb.chip_count>0||hb.expected_chips>0; });
+  if (realHbs.length) {
+    hbMini = '<div style="display:flex;gap:0.3em;margin-top:0.38em">'+
+      realHbs.map(function(hb){
+        var c=hb.health_pct>=85?'#00cc44':hb.health_pct>=60?'#ff9900':'#cc2200';
+        return '<div style="flex:1;border:2px solid '+c+';border-radius:3px;padding:0.2em 0.1em;text-align:center">'+
+          '<div style="font-size:0.92em;font-weight:bold;color:'+c+'">'+Math.round(hb.health_pct||0)+'%</div>'+
+          '<div style="font-size:0.7em;color:#ccc">HB'+hb.index+'</div>'+
+          (hb.chip_count?'<div style="font-size:0.68em;color:#aaa">'+hb.chip_count+'/'+hb.expected_chips+'</div>':'')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }
+
+  // Per-board temp string
+  var hbTemps = realHbs.map(function(hb){
+    var t = hb.temp_max || hb.temp || 0;
+    if (!t) return null;
+    var tColor = t < 75 ? '#00cc44' : t <= 85 ? '#ffaa00' : '#ff5555';
+    return 'HB'+hb.index+': <span style="color:'+tColor+';font-weight:bold">'+Math.round(t)+'°C</span>';
+  }).filter(Boolean);
+
+  // Fan RPMs
+  var fanStr = fans.length ? fans.map(function(f,i){ return 'Fan'+(i+1)+': '+f+' RPM'; }).join(' / ') : '—';
+
+  var poolShort = m.pool_url ? m.pool_url.replace('stratum+tcp://','').replace('stratum+ssl://','') : '—';
+
+  // Detail tab content
+  var detailContent =
+    '<div style="display:flex;gap:0.35em;flex:1;overflow:hidden;min-height:0" id="detail-tab-details" style="display:'+( detailTab==='details'?'flex':'none')+'">'+
+      '<div class="dsec" style="flex:1;overflow-y:auto;min-width:0">'+
+        '<h3>Details</h3>'+
+        rowc('Hashrate', m.rt_hashrate?m.rt_hashrate.toFixed(1)+' TH/s':'—')+
+        rowc('Board Temps', hbTemps.length ? hbTemps.join(' / ') : '—')+
+        rowc('Fans', fanStr)+
+        rowc('Worker', m.worker||'—')+
+        rowc('Pool', poolShort)+
+        rowc('Serial', m.serial_number||'—')+
+        rowc('MAC', m.mac_address||'—')+
+        rowc('Tests', m.test_count||0)+
+        rowc('Location', m.location||'bench')+
+        (m.client?rowc('Client',m.client):'')+
+      '</div>'+
+      '<div class="dsec" style="flex:1.1;overflow-y:auto;min-width:0">'+
+        '<h3>AI Diagnosis</h3>'+
+        (m.ai_severity&&!isHashing?'<span class="ai-sev '+svCls+'">'+sv.toUpperCase()+'</span><br>':
+          isHashing?'<span class="ai-sev sok">OK</span><br>':'')+
+        '<p class="ai-txt">'+(isHashing?'Miner hashing at nameplate. No action required.':(m.ai_issue_summary||'No diagnosis yet.'))+
+        (!isHashing&&m.ai_suggested_fix&&m.ai_suggested_fix!='None required.'?
+          '<br><br><b style="color:#ffcc44">Fix:</b> '+m.ai_suggested_fix : '')+
+        '</p>'+
+        (!isHashing&&m.ai_severity==='critical'?
+          '<p style="color:#ff5555;margin-top:0.5em;font-size:0.85em;font-weight:bold">⚠ Check PSU voltage &amp; hashboard connectors</p>':'')+
+      '</div>'+
+    '</div>';
+
+  // Chip map content
+  var chipMapContent =
+    '<div id="detail-tab-chipmap" style="flex:1;overflow-y:auto">'+
+      renderChipMap(m)+
+    '</div>';
+
+  document.getElementById('detail').innerHTML =
+    '<div style="background:#0e0e0e;border:1px solid #242424;border-radius:5px;padding:0.55em 0.7em;margin-bottom:0.35em;flex-shrink:0">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5em">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:1.2em;font-weight:bold;color:#4da6ff">'+(m.ct_id||'CT-????')+'</div>'+
+          '<div style="font-size:0.9em;color:#ddd;margin-top:0.1em">'+(m.model||m.miner_type||'Unknown')+' &bull; '+m.ip_address+'</div>'+
+          hbMini+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:0.3em;flex-shrink:0">'+
+          '<button class="btn-sm" onclick="doTest('+m.id+',\''+m.ip_address+'\')" style="background:#005588">▶ Test</button>'+
+          '<button class="btn-sm" onclick="printLabel('+m.id+')" style="background:#004499">🖨 Label</button>'+
+          '<button class="btn-sm green" onclick="markStatus('+m.id+',\'ready\')">✓ Pass</button>'+
+          '<button class="btn-sm red" onclick="markStatus('+m.id+',\'repair\')">✗ Fail</button>'+
+          '<button class="btn-sm gray" onclick="doLed('+m.id+')" style="font-size:0.8em">💡 LED</button>'+
+        '</div>'+
+      '</div>'+
+      '<div style="margin-top:0.45em;background:'+statusBg+';border-radius:3px;padding:0.25em 0.5em;font-size:0.85em;font-weight:bold;color:#fff;text-align:center">'+statusLabel+'</div>'+
+    '</div>'+
+    '<div class="dtabs">'+
+      '<div class="dtab'+(detailTab==='details'?' active':'')+'" onclick="switchDetailTab(\'details\')">📋 Details</div>'+
+      '<div class="dtab'+(detailTab==='chipmap'?' active':'')+'" onclick="switchDetailTab(\'chipmap\')">🔬 Chip Map</div>'+
+    '</div>'+
+    '<div id="detail-panels" style="flex:1;overflow:hidden;display:flex;flex-direction:column">'+
+      (detailTab==='details' ? detailContent : chipMapContent)+
+    '</div>';
+}
+
+function switchDetailTab(tab) {
+  detailTab = tab;
+  var m = miners.filter(function(x){return x.id===selId;})[0];
+  if (m) renderDetail(m);
+}
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+var pollPaused = false;
+
+function loadPollStatus() {
+  fetch('/api/discovery/polling/status')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pollPaused = d.paused;
+      var badge = document.getElementById('poll-status-badge');
+      var btn = document.getElementById('poll-toggle-btn');
+      if (!d.running) {
+        badge.innerHTML = '<span class="dot dr"></span> Stopped';
+        btn.textContent = '▶ Start'; btn.className = 'btn bg';
+      } else if (d.paused) {
+        badge.innerHTML = '<span class="dot do"></span> Paused';
+        btn.textContent = '▶ Resume'; btn.className = 'btn bg';
+      } else {
+        badge.innerHTML = '<span class="dot dg"></span> Scanning '+d.cidr+
+          (d.last_scan?' &bull; Last: '+d.last_scan+'s ago':'');
+        btn.textContent = '⏸ Pause'; btn.className = 'btn bd';
+      }
+      if (d.found_this_scan > 0) {
+        var log = document.getElementById('scan-log');
+        log.textContent = 'Last: '+d.found_this_scan+' miner(s) on '+d.cidr+'\nTotal: '+d.total_found;
+      }
+    }).catch(function(){});
+}
+
+function togglePolling() {
+  fetch('/api/discovery/polling/'+(pollPaused?'resume':'pause'),{method:'POST'})
+    .then(function(){ loadPollStatus(); }).catch(function(){});
+}
+function updatePollCidr() {
+  fetch('/api/discovery/polling/config?cidr='+encodeURIComponent(document.getElementById('poll-cidr').value.trim()),{method:'POST'})
+    .then(function(){ loadPollStatus(); }).catch(function(){});
+}
+function updatePollInterval() {
+  fetch('/api/discovery/polling/config?interval='+document.getElementById('poll-interval').value,{method:'POST'})
+    .then(function(){ loadPollStatus(); }).catch(function(){});
+}
+
+function testMiner() {
+  var ip = document.getElementById('test-ip').value.trim();
+  var ai = document.getElementById('run-ai').checked;
+  if (!ip) { alert('Enter an IP address'); return; }
+  var res = document.getElementById('test-result');
+  res.innerHTML = '<span class="spinner"></span> Testing '+ip+'...';
+  fetch('/api/miners/test?ip_address='+encodeURIComponent(ip)+'&run_ai='+ai,{method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      res.textContent = '✅ Done — '+(d.ct_id||'?')+' | '+(d.status||'?');
+      load();
+      setTimeout(function(){ showTab('miners'); if(d.id) sel(d.id); }, 800);
+    })
+    .catch(function(e){ res.textContent = '❌ Error: '+e.message; });
+}
+
+// ── Direct test from detail panel ────────────────────────────────────────────
+function doTest(id, ip) {
+  fetch('/api/miners/test?ip_address='+encodeURIComponent(ip)+'&run_ai=true',{method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ load(); setTimeout(function(){ sel(id); }, 800); })
+    .catch(function(e){ alert('Test failed: '+e.message); });
+}
+
+// Actions
+function printLabel(id) {
+  fetch('/api/labels/'+id+'/print',{method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ alert(d.did_print||d.outcome?'✅ Printed!':'Label sent (check printer)'); })
+    .catch(function(e){ alert('Print failed: '+e.message); });
+}
+function markStatus(id,s) {
+  fetch('/api/miners/'+id+'/mark_'+(s==='ready'?'ready':'parts'),{method:'POST'})
+    .then(function(){ load(); setTimeout(function(){sel(id);},500); })
+    .catch(function(e){ alert('Error: '+e.message); });
+}
+function doLed(id) {
+  fetch('/api/miners/'+id+'/led?blink=true',{method:'POST'}).catch(function(){});
+}
+
+// ── Batch Mode ────────────────────────────────────────────────────────────────
+function toggleBatch() {
+  batchMode = !batchMode;
+  var btn = document.getElementById('batch-btn');
+  btn.textContent = batchMode ? '⚡ BATCH ON' : '⚡ BATCH';
+  btn.classList.toggle('on', batchMode);
+  updateBatchQueue();
+}
+
+function updateBatchQueue() {
+  var qEl = document.getElementById('batch-queue');
+  if (batchMode && batchPending > 0) {
+    qEl.textContent = '⏳ '+batchPending+' pending';
+    qEl.style.display = '';
+  } else {
+    qEl.style.display = 'none';
+  }
+}
+
+function batchAutoTest(m) {
+  if (!batchMode) return;
+  var ip = m.ip_address;
+  if (batchQueue[ip]) return; // already queued
+  batchQueue[ip] = true;
+  batchPending++;
+  updateBatchQueue();
+  fetch('/api/miners/test?ip_address='+encodeURIComponent(ip)+'&run_ai=true',{method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      delete batchQueue[ip];
+      batchPending = Math.max(0, batchPending-1);
+      updateBatchQueue();
+      var passed = (d.status==='pass'||d.status==='ready_to_deploy'||(d.rt_hashrate&&d.rt_hashrate>50));
+      if (passed) {
+        beep(880, 0.3, 'sine');
+        flashCard(d.id, 'green');
+        if (d.id) printLabel(d.id);
+      } else {
+        beep(220, 0.5, 'sine');
+        flashCard(d.id, 'red');
+      }
+      load();
+    })
+    .catch(function(e){
+      delete batchQueue[ip];
+      batchPending = Math.max(0, batchPending-1);
+      updateBatchQueue();
+    });
+}
+
+function flashCard(id, color) {
+  if (!id) return;
+  var el = document.getElementById('mc-'+id);
+  if (!el) return;
+  var cls = color==='green' ? 'flash-green' : 'flash-red';
+  el.classList.remove('flash-green','flash-red');
+  void el.offsetWidth; // force reflow
+  el.classList.add(cls);
+  setTimeout(function(){ el.classList.remove(cls); }, 2000);
+}
+
+// ── Pool preset dropdowns ─────────────────────────────────────────────────────
+function applyPoolPreset() {
+  var v = document.getElementById('wp-pool-preset').value;
+  if (v) document.getElementById('wp-pool').value = v;
+}
+function applyPool2Preset() {
+  var v = document.getElementById('wp-pool2-preset').value;
+  if (v) document.getElementById('wp-pool2').value = v;
+}
+
+// ── AI Settings ───────────────────────────────────────────────────────────────
+function loadAISettings() {
+  fetch('/api/settings/ai').then(function(r){ return r.json(); }).then(function(d){
+    if (d.openai_key_set) {
+      document.getElementById('openai-key').placeholder = '(key saved — enter new to change)';
+    }
+    if (d.model) {
+      var sel = document.getElementById('openai-model');
+      for (var i=0; i<sel.options.length; i++) {
+        if (sel.options[i].value === d.model) { sel.selectedIndex=i; break; }
+      }
+    }
+    if (d.base_url) document.getElementById('openai-base').value = d.base_url;
+  }).catch(function(){});
+}
+
+function saveAISettings() {
+  var key = document.getElementById('openai-key').value.trim();
+  var model = document.getElementById('openai-model').value;
+  var base = document.getElementById('openai-base').value.trim();
+  var res = document.getElementById('ai-save-result');
+  var payload = {model: model};
+  if (key) payload.openai_api_key = key;
+  if (base) payload.openai_base_url = base;
+  fetch('/api/settings/ai', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); }).then(function(d){
+    res.textContent = d.status==='ok' ? '✅ Saved — AI diagnosis active' : '⚠ '+JSON.stringify(d);
+    if (key) document.getElementById('openai-key').value = '';
+  }).catch(function(e){ res.textContent = '❌ '+e.message; });
+}
+
+// ── System Status ─────────────────────────────────────────────────────────────
+function loadHealth() {
+  fetch('/health').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('srv-status').textContent = d.status==='ok'?'✅ OK':'❌ '+d.status;
+    document.getElementById('db-status').textContent = '✅ Connected';
+    document.getElementById('pi-ip').textContent = window.location.hostname;
+  }).catch(function(e){
+    document.getElementById('srv-status').textContent = '❌ '+e.message;
+  });
+  fetch('/api/discovery/status').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('plat-status').textContent = d.platform_connected?'✅ Connected':'⚠️ Offline';
+  }).catch(function(){
+    document.getElementById('plat-status').textContent = '—';
+  });
+  var printerIp = localStorage.getItem('printer_ip')||'';
+  if (printerIp) document.getElementById('printer-ip').value = printerIp;
+}
+
+function savePrinter() {
+  var ip = document.getElementById('printer-ip').value.trim();
+  var model = document.getElementById('printer-model').value.trim();
+  localStorage.setItem('printer_ip', ip);
+  fetch('/api/settings',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({printer_identifier: ip, printer_model: model})
+  }).then(function(){ alert('Saved.'); }).catch(function(){ alert('Saved locally.'); });
+}
+
+function saveCreds() {
+  var pass = document.getElementById('miner-pass').value;
+  fetch('/api/settings',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({miner_password: pass})
+  }).then(function(){ alert('Saved'); }).catch(function(){ alert('Save failed'); });
+}
+
+// ── Worker Profiles ───────────────────────────────────────────────────────────
+var workerProfiles = [];
+
+function loadWorkerProfiles() {
+  fetch('/api/workers').then(function(r){return r.json();}).then(function(data){
+    workerProfiles = data;
+    var el = document.getElementById('worker-list');
+    var sel = document.getElementById('wp-assign-profile');
+    if (!data.length) {
+      el.innerHTML = '<span style="color:#aaa">No profiles yet — create one below.</span>';
+      sel.innerHTML = '<option value="">No profiles</option>';
+      return;
+    }
+    el.innerHTML = data.map(function(p){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4em 0;border-bottom:1px solid #1e1e1e">'+
+        '<div>'+
+          '<b style="color:#f0f0f0;font-size:0.92em">'+p.name+'</b> '+
+          '<span style="color:#bbb;font-size:0.82em">'+p.worker_template+'</span><br>'+
+          '<span style="color:#aaa;font-size:0.8em">'+p.pool_url+'</span>'+
+          (p.site_label?'<span style="color:#aaa;font-size:0.78em"> · '+p.site_label+'</span>':'')+
+        '</div>'+
+        '<div style="display:flex;gap:0.3em">'+
+          '<button class="btn-sm gray" onclick="editWorkerProfile('+p.id+')">✏</button>'+
+          '<button class="btn-sm red" onclick="deleteWorkerProfile('+p.id+')">🗑</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    sel.innerHTML = data.map(function(p){
+      return '<option value="'+p.id+'">'+p.name+'</option>';
+    }).join('');
+  }).catch(function(){ document.getElementById('worker-list').textContent = 'Error loading profiles'; });
+}
+
+function saveWorkerProfile() {
+  var id = document.getElementById('wp-id').value;
+  var data = {
+    name: document.getElementById('wp-name').value.trim(),
+    pool_url: document.getElementById('wp-pool').value.trim(),
+    pool_url_2: document.getElementById('wp-pool2').value.trim() || null,
+    pool_url_3: null,
+    worker_template: document.getElementById('wp-worker').value.trim(),
+    password: document.getElementById('wp-pass').value.trim() || 'x',
+    site_label: document.getElementById('wp-site').value.trim() || null,
+    notes: null,
+  };
+  if (!data.name||!data.pool_url||!data.worker_template) { alert('Name, Pool URL, and Worker Template required'); return; }
+  var url = id ? '/api/workers/'+id : '/api/workers';
+  fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(){ clearWorkerForm(); loadWorkerProfiles(); })
+    .catch(function(e){ alert('Save failed: '+e.message); });
+}
+
+function editWorkerProfile(id) {
+  var p = workerProfiles.filter(function(x){return x.id===id;})[0];
+  if (!p) return;
+  document.getElementById('wp-id').value = p.id;
+  document.getElementById('wp-name').value = p.name||'';
+  document.getElementById('wp-pool').value = p.pool_url||'';
+  document.getElementById('wp-pool2').value = p.pool_url_2||'';
+  document.getElementById('wp-worker').value = p.worker_template||'';
+  document.getElementById('wp-pass').value = p.password||'x';
+  document.getElementById('wp-site').value = p.site_label||'';
+}
+
+function deleteWorkerProfile(id) {
+  if (!confirm('Delete this profile?')) return;
+  fetch('/api/workers/'+id,{method:'DELETE'})
+    .then(function(){ loadWorkerProfiles(); })
+    .catch(function(e){ alert('Delete failed: '+e.message); });
+}
+
+function clearWorkerForm() {
+  ['wp-id','wp-name','wp-pool','wp-pool2','wp-worker','wp-site'].forEach(function(id){
+    document.getElementById(id).value='';
+  });
+  document.getElementById('wp-pass').value='x';
+  document.getElementById('wp-pool-preset').selectedIndex=0;
+  document.getElementById('wp-pool2-preset').selectedIndex=0;
+}
+
+function assignWorkers() {
+  var profileId = parseInt(document.getElementById('wp-assign-profile').value);
+  var target = document.getElementById('wp-assign-target').value;
+  var res = document.getElementById('assign-result');
+  if (!profileId) { alert('Select a profile first'); return; }
+  var body = {profile_id: profileId};
+  if (target==='selected'&&selId) body.miner_ids = [selId];
+  res.textContent = 'Pushing...';
+  fetch('/api/workers/assign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){ res.textContent = '✅ Queued '+d.queued+' miner(s) with "'+d.profile+'"'; setTimeout(load,3000); })
+    .catch(function(e){ res.textContent = '❌ '+e.message; });
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Don't steal from inputs
+  if (e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA') return;
+  if (e.key==='Enter') {
+    if (selId) {
+      var m = miners.filter(function(x){return x.id===selId;})[0];
+      if (m) doTest(selId, m.ip_address);
+    }
+  } else if (e.key==='p'||e.key==='P') {
+    if (selId) printLabel(selId);
+  } else if (e.key==='f'||e.key==='F') {
+    if (selId) markStatus(selId,'repair');
+  } else if (e.key===' ') {
+    e.preventDefault();
+    // select next miner
+    if (!miners.length) return;
+    var order = {fail:0,warn:1,testing:2,pass:3};
+    var sorted = miners.slice().sort(function(a,b){ return (order[sc(a)]||4)-(order[sc(b)]||4); });
+    var idx = -1;
+    for (var i=0;i<sorted.length;i++){if(sorted[i].id===selId){idx=i;break;}}
+    var next = sorted[(idx+1)%sorted.length];
+    if (next) sel(next.id);
+  } else if (e.key==='Escape') {
+    selId = null;
+    renderList();
+    document.getElementById('detail').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">👈</div><div class="empty-msg">Tap a miner to view details</div></div>';
+  }
+});
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWS() {
+  try {
+    ws = new WebSocket('ws://'+location.host+'/ws/miners');
+    ws.onmessage = function(e) {
+      try {
+        var msg = JSON.parse(e.data);
+        if (msg.event==='miner_update') {
+          var d = msg.data;
+          var idx = -1;
+          for (var i=0;i<miners.length;i++){if(miners[i].id===d.id){idx=i;break;}}
+          var isNew = (idx < 0);
+          var prevStatus = idx>=0 ? sc(miners[idx]) : null;
+          if (idx>=0){for(var k in d)miners[idx][k]=d[k];}
+          else miners.push(d);
+          renderList(); stats();
+          if (selId===d.id && idx>=0) renderDetail(miners[idx]);
+
+          // Flash on status change
+          var newStatus = sc(idx>=0 ? miners[idx] : d);
+          if (!isNew && prevStatus && prevStatus !== newStatus) {
+            if (newStatus==='pass') flashCard(d.id, 'green');
+            else if (newStatus==='fail') flashCard(d.id, 'red');
+          }
+
+          // Batch mode: auto-test new miners
+          if (batchMode && isNew) {
+            batchAutoTest(d);
+          }
+        }
+      } catch(ex){}
+    };
+    ws.onclose = function(){ setTimeout(connectWS, 4000); };
+    ws.onerror = function(){ try{ws.close();}catch(ex){} };
+  } catch(ex){}
+}
+
+setInterval(load, 30000);
+setInterval(loadPollStatus, 10000);
+load(); loadPollStatus(); connectWS();
+</script>
+</body>
+</html>
+"""

@@ -1,0 +1,3490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CT TestBench</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#080808;color:#f0f0f0;font-family:'Segoe UI',Arial,sans-serif;
+  width:100vw;height:100vh;overflow:hidden;display:flex;flex-direction:column;
+  font-size:clamp(14px,1.4vw,22px)}
+:root{--blue:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;
+  --card:#0f0f0f;--border:#1f2937;--bg:#080808}
+
+/* ── Header ── */
+.hdr{background:#0e0e0e;border-bottom:2px solid #0055cc;padding:.5em 1em;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:.5em}
+.hdr-title{font-size:1.2em;font-weight:700;color:#4da6ff;letter-spacing:1px}
+.hdr-right{display:flex;align-items:center;gap:.8em;flex-shrink:0}
+.clock{font-size:.85em;color:#aaa;font-variant-numeric:tabular-nums}
+.dot{width:.55em;height:.55em;border-radius:50%;display:inline-block;margin-right:.2em}
+.dg{background:#00cc44;box-shadow:0 0 4px #00cc44}
+.do{background:#ff9900;box-shadow:0 0 4px #ff9900}
+.dr{background:#cc2200;box-shadow:0 0 4px #cc2200}
+.api-st{font-size:.78em;color:#bbb}
+
+/* ── Tab bar ── */
+.tabs{background:#0a0a0a;border-bottom:2px solid #1a1a1a;display:flex;flex-shrink:0}
+.tab{flex:1;padding:.5em .4em;text-align:center;font-size:.88em;font-weight:700;
+  color:#555;cursor:pointer;border-bottom:3px solid transparent;transition:color .15s;
+  user-select:none}
+.tab.active{color:#4da6ff;border-bottom-color:#4da6ff;background:#0d1a2e}
+.tab:active{opacity:.7}
+
+/* ── Stats row ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5em;
+  padding:.6em .8em;background:#0a0a0a;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.pill{background:#111;border:1px solid #222;border-radius:6px;padding:.3em .6em;
+  text-align:center;font-size:.78em;color:#aaa}
+.pill b{color:#fff;font-size:1.1em}
+
+/* ── Pages ── */
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ── Miners page ── */
+.miners-layout{display:flex;flex:1;overflow:hidden}
+.miner-list{width:38%;border-right:2px solid #1a1a1a;overflow-y:auto;
+  padding:.4em;flex-shrink:0}
+.miner-list-hdr{display:flex;justify-content:space-between;align-items:center;
+  padding:.2em .2em .4em;gap:.3em}
+#miner-count{font-size:.8em;color:#555}
+.miner-card{background:#111;border:1px solid #222;border-left:4px solid #222;
+  border-radius:4px;padding:.5em .6em;margin-bottom:.35em;cursor:pointer;
+  user-select:none;transition:border-color .1s}
+.miner-card.pass{border-left-color:#00cc44}
+.miner-card.fail{border-left-color:#cc2200}
+.miner-card.testing{border-left-color:#4da6ff}
+.miner-card.warn{border-left-color:#ff9900}
+.miner-card.selected{background:#0d1a0d;border-color:#00cc44}
+.miner-card:active{opacity:.7}
+.mc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.15em}
+.mc-id{font-size:.78em;font-weight:700;color:#aaa;font-family:monospace}
+.mc-badges{display:flex;gap:.3em;flex-wrap:wrap}
+.mc-mdl{font-size:.82em;color:#ddd;margin-bottom:.1em}
+.mc-inf{font-size:.72em;color:#555}
+.bdg{padding:.1em .35em;border-radius:3px;font-size:.7em;font-weight:700}
+.bp{background:#003311;color:#00cc44}.bf{background:#330000;color:#cc4444}
+.bt{background:#001133;color:#4da6ff}.bw{background:#332200;color:#ff9900}
+.bn{background:#222;color:#777}
+.bdg-fault{background:#550000;color:#ff6666}
+.tmp-bdg{padding:.1em .3em;border-radius:3px;font-size:.68em;font-weight:600}
+.tmp-g{background:#003311;color:#00cc44}
+.tmp-o{background:#332200;color:#ff9900}
+.tmp-r{background:#330000;color:#cc4444}
+.mc-hr-bar-wrap{height:3px;background:#1a1a1a;border-radius:2px;margin-top:.3em}
+.mc-hr-bar{height:3px;border-radius:2px;transition:width .3s}
+.empty-state{text-align:center;padding:2em;color:#444}
+.empty-icon{font-size:2.5em;margin-bottom:.4em}
+.empty-msg{font-size:.85em;line-height:1.5}
+
+/* ── Detail panel ── */
+.miner-detail{flex:1;overflow-y:auto;padding:.7em 1em}
+.detail-empty{display:flex;align-items:center;justify-content:center;
+  height:100%;color:#333;font-size:.9em;text-align:center}
+.dtabs{display:flex;border-bottom:1px solid #1a1a1a;margin-bottom:.6em;flex-shrink:0}
+.dtab{padding:.35em .6em;font-size:.78em;font-weight:700;color:#555;cursor:pointer;
+  border-bottom:2px solid transparent;transition:color .1s}
+.dtab.active{color:#4da6ff;border-bottom-color:#4da6ff}
+.dtab:active{opacity:.7}
+.dtab-page{display:none}.dtab-page.active{display:block}
+.info-row{display:flex;justify-content:space-between;padding:.25em 0;
+  border-bottom:1px solid #111;font-size:.78em}
+.lbl{color:#555}.val{color:#ddd;text-align:right;max-width:60%;word-break:break-all}
+.hb-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4em;margin:.4em 0}
+.hb-card{background:#111;border:1px solid #222;border-radius:4px;padding:.4em .5em}
+.hb-pos{font-size:.7em;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:.2em}
+.hb-pct{font-size:1.3em;font-weight:700}
+.hb-chips{font-size:.68em;color:#555;margin-top:.1em}
+.hb-g{color:#00cc44}.hb-o{color:#ff9900}.hb-r{color:#cc4444}
+.ai-box{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:.5em .6em;margin:.4em 0}
+.ai-lbl{font-size:.68em;font-weight:700;color:#4da6ff;text-transform:uppercase;margin-bottom:.2em}
+.ai-txt{font-size:.75em;color:#aaa;line-height:1.4}
+.ai-fix{color:#ff9900}
+.actions{display:flex;gap:.4em;flex-wrap:wrap;margin-top:.6em}
+.btn{padding:.4em .8em;border-radius:5px;border:none;cursor:pointer;font-size:.75em;
+  font-weight:700;transition:opacity .1s;user-select:none}
+.btn:active{opacity:.6}
+.btn-blue{background:#0055cc;color:#fff}
+.btn-green{background:#004d1a;color:#00cc44;border:1px solid #006622}
+.btn-amber{background:#332200;color:#ff9900;border:1px solid #664400}
+.btn-gray{background:#1a1a1a;color:#888;border:1px solid #2a2a2a}
+.btn-red{background:#330000;color:#cc4444;border:1px solid #550000}
+.result-box{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;
+  padding:.4em .6em;margin-top:.4em;font-size:.75em;color:#aaa;min-height:1.8em}
+
+/* ── Discovery page ── */
+.discovery-body{flex:1;overflow-y:auto;padding:.7em 1em}
+.scan-row{display:flex;gap:.5em;align-items:center;flex-wrap:wrap;margin-bottom:.6em}
+.scan-input{background:#111;border:1px solid #2a2a2a;color:#fff;
+  padding:.4em .6em;border-radius:4px;font-size:.8em;flex:1;min-width:120px}
+.scan-input:focus{outline:none;border-color:#4da6ff}
+.poll-status{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;
+  padding:.4em .6em;font-size:.75em;color:#888;margin-bottom:.6em;line-height:1.5}
+
+/* ── Bench page ── */
+.bench-body{flex:1;overflow-y:auto;padding:.7em 1em}
+.bench-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7em}
+.rack-col{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:6px;overflow:hidden}
+.rack-hdr{background:#0d1a2e;border-bottom:1px solid #1a1a1a;padding:.4em .6em;
+  display:flex;justify-content:space-between;align-items:center}
+.rack-hdr h3{font-size:.85em;font-weight:700;color:#4da6ff}
+.rack-hdr span{font-size:.68em;color:#555}
+.rack-slots{padding:.4em}
+.slot{background:#0a0a0a;border:1px solid #1a1a1a;border-left:3px solid #1a1a1a;
+  border-radius:4px;padding:.45em .5em;margin-bottom:.35em;cursor:pointer;
+  transition:border-color .1s}
+.slot:hover{border-color:#2a2a2a}
+.slot.occupied{border-left-color:var(--blue)}
+.slot.occupied.pass{border-left-color:var(--green)}
+.slot.occupied.fail,.slot.occupied.needs_repair{border-left-color:var(--amber)}
+.slot-outlet{font-size:.72em;font-weight:700;color:#4da6ff;font-family:monospace}
+.slot-phase{font-size:.65em;color:#333;margin-left:.4em}
+.slot-model{font-size:.75em;color:#ccc;margin-top:.15em}
+.slot-sub{font-size:.65em;color:#555;margin-top:.1em}
+.slot-empty{font-size:.72em;color:#2a2a2a;margin-top:.15em;font-style:italic}
+
+/* ── Settings page ── */
+.settings-body{flex:1;overflow-y:auto;padding:.7em 1em}
+.setting-group{background:#0f0f0f;border:1px solid #1a1a1a;border-radius:6px;
+  padding:.6em .8em;margin-bottom:.6em}
+.setting-group h3{font-size:.8em;font-weight:700;color:#4da6ff;
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5em}
+.setting-row{display:flex;justify-content:space-between;align-items:center;
+  padding:.3em 0;border-bottom:1px solid #111;gap:.5em}
+.setting-row:last-child{border-bottom:none}
+.setting-row label{font-size:.78em;color:#888;flex:1}
+.setting-row input,.setting-row select{background:#111;border:1px solid #2a2a2a;
+  color:#fff;padding:.3em .5em;border-radius:4px;font-size:.78em;width:55%;text-align:right}
+.setting-row input:focus,.setting-row select:focus{outline:none;border-color:#4da6ff}
+.log-box{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;
+  padding:.5em .6em;font-size:.7em;font-family:monospace;color:#666;
+  height:8em;overflow-y:auto;white-space:pre-wrap;line-height:1.4}
+
+/* ── Batch bar ── */
+.batch-bar{background:#0a0a0a;border-top:1px solid #1a1a1a;padding:.35em .8em;
+  display:flex;align-items:center;gap:.6em;flex-shrink:0;font-size:.75em}
+.batch-bar.hidden{display:none}
+
+/* ── Toasts ── */
+#toast{position:fixed;bottom:1em;right:1em;background:#1a1a1a;border:1px solid #333;
+  border-radius:6px;padding:.5em .9em;font-size:.78em;opacity:0;transition:opacity .3s;
+  z-index:999;max-width:280px;pointer-events:none}
+#toast.show{opacity:1}
+#toast.ok{border-color:#00cc44;color:#00cc44}
+#toast.err{border-color:#cc4444;color:#cc4444}
+#toast.info{border-color:#4da6ff;color:#4da6ff}
+
+/* ── Scan overlay ── */
+#scan-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:100;align-items:center;justify-content:center}
+#scan-overlay.show{display:flex}
+.scan-box{background:#111;border:1px solid #2a2a2a;border-radius:8px;
+  padding:1.2em 1.4em;width:90%;max-width:320px}
+.scan-box h2{font-size:1em;margin-bottom:.3em;color:#fff}
+.scan-box p{font-size:.78em;color:#555;margin-bottom:.8em}
+.scan-ip{width:100%;background:#0a0a0a;border:1px solid #2a2a2a;color:#fff;
+  padding:.5em .7em;border-radius:4px;font-size:.9em;text-align:center;margin-bottom:.6em}
+.scan-ip:focus{outline:none;border-color:#4da6ff}
+.scan-btns{display:flex;gap:.4em}
+.scan-status{margin-top:.5em;font-size:.72em;color:#555;min-height:1.2em}
+.spinner{display:inline-block;width:.9em;height:.9em;border:2px solid #2a2a2a;
+  border-top-color:#4da6ff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── IP Numpad overlay ── */
+#ip-numpad-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);
+  z-index:9000;align-items:flex-end;justify-content:center}
+#ip-numpad-overlay.show{display:flex}
+.ip-numpad-box{background:#111;border:1px solid #2a2a2a;border-radius:12px 12px 0 0;
+  padding:1em;width:100%;max-width:420px;box-sizing:border-box}
+.ip-numpad-label{font-size:.72em;color:#555;margin-bottom:.3em}
+.ip-numpad-display{background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;
+  padding:.5em .7em;font-size:1.1em;color:#fff;font-family:monospace;
+  min-height:2em;margin-bottom:.7em;word-break:break-all}
+.ip-numpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4em;margin-bottom:.4em}
+.ip-numpad-grid button{background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;
+  border-radius:6px;padding:.7em 0;font-size:1.1em;cursor:pointer;touch-action:manipulation}
+.ip-numpad-grid button:active{background:#2a3d5a}
+.ip-numpad-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4em}
+.ip-numpad-actions button{border-radius:6px;padding:.6em 0;font-size:.85em;cursor:pointer;
+  touch-action:manipulation;border:1px solid #2a2a2a}
+.ip-numpad-dot{background:#1a2a1a!important;color:#5fd45f}
+.ip-numpad-slash{background:#1a1a2a!important;color:#6a8fff}
+.ip-numpad-back{background:#2a1a1a!important;color:#e05050}
+.ip-numpad-clear{background:#1a1a1a;color:#888}
+.ip-numpad-ok{background:#1a3d1a!important;color:#5fd45f;font-weight:700}
+
+/* ── Shelf range config ── */
+.shelf-range-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.4em;margin:.4em 0}
+.shelf-range-card{background:#0a0a0a;border:1px solid #1e1e1e;border-radius:6px;padding:.5em .7em}
+.shelf-range-card h4{font-size:.78em;font-weight:700;color:#ccc;margin:0 0 .35em}
+.shelf-range-card label{font-size:.68em;color:#555;display:block;margin-bottom:.1em}
+.shelf-range-input{background:#111;border:1px solid #2a2a2a;color:#fff;border-radius:4px;
+  font-size:.72em;padding:.25em .4em;width:100%;box-sizing:border-box;margin-bottom:.25em;cursor:pointer}
+.shelf-range-input:focus{outline:none;border-color:#4da6ff}
+.shelf-scan-badge{font-size:.62em;padding:.1em .35em;border-radius:3px;
+  background:#1a3d1a;color:#5fd45f;margin-left:.3em}
+
+
+.slot-amps{font-size:.7em;font-weight:700;font-family:monospace;margin-top:.15em}
+.slot-amps.amps-ok{color:#4dff4d}
+.slot-amps.amps-hi{color:#ffaa00}
+.slot-amps.amps-crit{color:#ff4444}
+.slot-amps.amps-off{color:#333}
+
+
+/* ── Diagnostic modal ── */
+#diag-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:8000;align-items:center;justify-content:center}
+#diag-modal.show{display:flex}
+.diag-box{background:#111;border:1px solid #2a2a2a;border-radius:10px;
+  width:92%;max-width:480px;padding:1.2em;box-sizing:border-box;position:relative}
+.diag-header{display:flex;align-items:center;gap:.5em;margin-bottom:.8em}
+.diag-header h3{font-size:.95em;font-weight:700;color:#fff;margin:0;flex:1}
+.diag-slot-badge{font-size:.72em;padding:.2em .5em;border-radius:4px;
+  background:#1a2a4d;color:#4da6ff;font-family:monospace}
+.diag-status{font-size:.75em;color:#888;margin-bottom:.6em}
+.diag-status.s-scanning{color:#4da6ff}
+.diag-status.s-awaiting{color:#ffaa00}
+.diag-status.s-cycling{color:#ff9900}
+.diag-status.s-resolved{color:#5fd45f}
+.diag-status.s-diagnosed{color:#ff6644}
+.diag-log{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;
+  padding:.5em;font-size:.65em;font-family:monospace;color:#888;
+  max-height:120px;overflow-y:auto;margin-bottom:.6em}
+.diag-log div{margin-bottom:.2em}
+.diag-log div:last-child{color:#ccc}
+.diag-serial-row{display:flex;gap:.4em;margin-bottom:.6em}
+.diag-cycle-bar{background:#1a1a1a;border-radius:4px;height:6px;margin-bottom:.6em;overflow:hidden}
+.diag-cycle-fill{height:100%;background:#ff9900;transition:width 1s linear}
+.diag-actions{display:flex;gap:.4em;flex-wrap:wrap}
+
+
+/* ── Scan input capture ── */
+.scan-capture-input{
+  position:absolute;left:-9999px;top:-9999px;opacity:0;
+  width:1px;height:1px;border:none;outline:none;
+}
+.scan-manual-row{
+  display:flex;gap:.5em;margin-top:.5em;
+}
+.scan-manual-input{
+  flex:1;background:#111;border:1px solid #333;border-radius:5px;
+  color:#fff;font-size:.9em;padding:.4em .6em;font-family:monospace;
+}
+.scan-manual-input:focus{border-color:#4da6ff;outline:none}
+
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+* { -webkit-tap-highlight-color: rgba(0,0,0,0); touch-action: manipulation; }
+button, .btn, .miner-card, .tab, .dtab, .slot { cursor: pointer; touch-action: manipulation; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <span class="hdr-title">⛏ CT TestBench</span>
+  <div class="hdr-right">
+    <span class="api-st" id="api-st"><span class="dot do"></span>Loading</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tabs">
+  <div class="tab active" id="tab-miners" onclick="showTab('miners')">⛏ Miners</div>
+  <div class="tab" id="tab-scan" onclick="showTab('scan')">📡 Discovery</div>
+  <div class="tab" id="tab-bench" onclick="showTab('bench')">🔌 Bench</div>
+  <div class="tab" id="tab-history" onclick="showTab('history')">📋 History</div>
+  <div class="tab" id="tab-pdu" onclick="showTab('pdu')">&#x26A1; PDU</div>
+  <div class="tab" id="tab-settings" onclick="showTab('settings')">⚙ Settings</div>
+  <div class="tab" id="tab-chat" onclick="showTab('chat')">💬 Chat</div>
+</div>
+
+<!-- Stats row -->
+<div class="stats-row">
+  <div class="pill">Online <b id="st">0</b></div>
+  <div class="pill">✅ Pass <b id="sp">0</b></div>
+  <div class="pill">❌ Fail <b id="sf">0</b></div>
+  <div class="pill" onclick="showTab('history')" style="cursor:pointer">📋 History <b id="sh">0</b></div>
+</div>
+
+<!-- ── MINERS PAGE ── -->
+<div class="page active" id="page-miners">
+  <div class="miners-layout">
+    <!-- List -->
+    <div class="miner-list">
+      <div class="miner-list-hdr">
+        <span id="miner-count" class="api-st"></span>
+        <div style="display:flex;gap:.3em">
+          <button class="btn btn-green" style="margin-right:.4em" id="net-scan-btn" onclick="startNetScan()">🔍 Scan Network</button><button class="btn btn-blue" onclick="showScan()">＋ Test</button>
+          <button class="btn btn-gray" onclick="load()">↻</button>
+        </div>
+      </div>
+      <div id="miner-list-body">
+        <div class="empty-state">
+          <div class="empty-icon">⛏</div>
+          <div class="empty-msg">No miners yet.<br>Press ＋ Test to scan an IP.</div>
+        </div>
+      </div>
+    </div>
+    <!-- Detail -->
+    <div class="miner-detail" id="miner-detail">
+      <div class="detail-empty">
+        <div><div style="font-size:2em;margin-bottom:.4em">👆</div>Select a miner to view details</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DISCOVERY PAGE ── -->
+<div class="page" id="page-scan">
+  <div class="discovery-body">
+    <div class="setting-group" id="shelf-ranges-panel">
+      <h3>Shelf IP Ranges</h3>
+      <p style="font-size:.71em;color:#555;margin:.1em 0 .5em">Set a CIDR range per shelf. Scan matches miners to slots by IP and shows live power draw.</p>
+      <div id="shelf-range-grid" class="shelf-range-grid"></div>
+      <div style="margin-top:.4em;display:flex;gap:.4em;flex-wrap:wrap">
+        <button class="btn btn-blue" onclick="scanAllShelfRanges()">&#x1F50D; Scan All Shelves</button>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>Auto-Discovery</h3>
+      <div class="poll-status" id="poll-status">Loading…</div>
+      <div class="scan-row">
+        <input class="scan-input" id="poll-cidr" placeholder="CIDR e.g. 10.0.0.0/24" value="10.0.0.0/24">
+        <button class="btn btn-blue" onclick="updatePollCidr()">Set</button>
+        <button class="btn btn-gray" id="poll-toggle-btn" onclick="togglePolling()">Pause</button>
+      </div>
+      <div class="scan-row">
+        <label style="font-size:.78em;color:#555">Interval (sec)</label>
+        <input class="scan-input" id="poll-interval" type="number" value="60" style="width:80px">
+        <button class="btn btn-gray" onclick="updatePollInterval()">Set</button>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>Manual Scan</h3>
+      <div class="scan-row">
+        <input class="scan-input" id="scan-range-start" placeholder="Start IP e.g. 10.0.0.1">
+        <input class="scan-input" id="scan-range-end" placeholder="End IP e.g. 10.0.0.254">
+        <button class="btn btn-blue" onclick="runRangeScan()">Scan</button>
+      </div>
+      <div class="result-box" id="scan-result">–</div>
+    </div>
+    <div class="setting-group">
+      <h3>PDU Power</h3>
+      <div id="pdu-status" class="poll-status">–</div>
+      <button class="btn btn-blue" onclick="loadPDU()">↻ Refresh</button>
+      &nbsp;
+      <button class="btn btn-amber" onclick="identifyBench()">🔍 Fingerprint Outlets</button>
+      <div id="pdu-result" class="result-box" style="margin-top:.4em;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── BENCH PAGE ── -->
+<div class="page" id="page-bench">
+  <div class="bench-body">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6em">
+      <span style="font-size:.75em;color:#555;text-transform:uppercase;letter-spacing:.06em">
+        Bench Layout — <span id="bench-subtitle">loading…</span>
+      </span>
+      <button class="btn btn-gray" onclick="renderBench()">↻</button>
+    </div>
+    <div class="bench-grid" id="bench-grid"></div>
+  </div>
+</div>
+
+<!-- ── HISTORY PAGE ── -->
+
+<div class="page" id="page-pdu">
+  <div style="padding:.6em .6em .3em;flex-shrink:0">
+    <!-- Phase summary bar -->
+    <div id="pdu-phases" style="display:flex;gap:.4em;margin-bottom:.5em"></div>
+    <!-- Controls -->
+    <div style="display:flex;gap:.4em;margin-bottom:.5em;flex-wrap:wrap">
+      <button class="btn btn-green" style="font-size:.75em" onclick="loadPDU()">&#x21BB; Refresh</button>
+      <button class="btn" style="font-size:.75em;background:#0a2218;border-color:#00cc66;color:#00cc66" onclick="pduAllOn()">ALL ON</button>
+      <button class="btn" style="font-size:.75em;background:#2a0000;border-color:#cc2200;color:#ff4444" onclick="pduAllOff()">ALL OFF</button>
+      <button class="btn" style="font-size:.75em;background:#1a1a00;border-color:#aaaa00;color:#dddd00" onclick="pduCycleAll()">CYCLE ALL</button>
+    </div>
+    <!-- Phase tabs -->
+    <div style="display:flex;border-bottom:2px solid #1a1a1a;margin-bottom:.5em">
+      <div id="pdu-tab-L1" class="dtab active" style="flex:1;text-align:center" onclick="showPduPhase('L1')">L1 (Rack A+D)</div>
+      <div id="pdu-tab-L2" class="dtab" style="flex:1;text-align:center" onclick="showPduPhase('L2')">L2 (Rack B+C)</div>
+      <div id="pdu-tab-L3" class="dtab" style="flex:1;text-align:center" onclick="showPduPhase('L3')">L3</div>
+    </div>
+  </div>
+  <!-- Phase outlet grids -->
+  <div style="flex:1;overflow-y:auto;padding:0 .6em .6em">
+    <div id="pdu-phase-L1" style="display:grid;grid-template-columns:1fr 1fr;gap:.4em"></div>
+    <div id="pdu-phase-L2" style="display:none;grid-template-columns:1fr 1fr;gap:.4em"></div>
+    <div id="pdu-phase-L3" style="display:none;grid-template-columns:1fr 1fr;gap:.4em"></div>
+    <div id="pdu-error" style="display:none;color:#ff6666;font-size:.8em;margin-top:.5em"></div>
+  </div>
+</div>
+<div class="page" id="page-history">
+  <div class="settings-body">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5em">
+      <span style="font-size:.75em;color:#555;text-transform:uppercase;letter-spacing:.06em">Offline / Archived Miners</span>
+      <div style="display:flex;gap:.3em">
+        <select id="hist-filter" class="scan-input" style="width:auto" onchange="loadHistory()">
+          <option value="all">All</option>
+          <option value="offline">Offline</option>
+          <option value="needs_repair">Needs Repair</option>
+          <option value="parts_unit">Parts</option>
+          <option value="ready_to_deploy">Ready</option>
+        </select>
+        <button class="btn btn-gray" onclick="loadHistory()">↻</button>
+      </div>
+    </div>
+    <div id="history-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">No history yet.</div></div></div>
+  </div>
+</div>
+
+<!-- ── SETTINGS PAGE ── -->
+<div class="page" id="page-settings">
+  <div class="settings-body">
+    <div class="setting-group">
+      <h3>AI Engine</h3>
+      <div class="setting-row">
+        <label>API Base URL</label>
+        <input type="text" id="ai-base-url" placeholder="http://host:port/v1">
+      </div>
+      <div class="setting-row">
+        <label>Model</label>
+        <select id="ai-model">
+          <option value="auto">Auto</option>
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="gpt-4o-mini">GPT-4o-mini</option>
+          <option value="qwen2.5-coder:7b">Qwen2.5-Coder 7B</option>
+          <option value="llama3.1:8b">Llama 3.1 8B</option>
+        </select>
+      </div>
+      <div class="setting-row" style="border:none">
+        <label>API Key</label>
+        <input type="password" id="ai-key" placeholder="sk-…">
+      </div>
+      <button class="btn btn-blue" style="margin-top:.4em" onclick="saveAI()">Save AI Settings</button>
+    </div>
+    <div class="setting-group">
+      <h3>Shelf Labels</h3>
+      <p style="font-size:.71em;color:#555;margin:.1em 0 .5em">Print a barcode label for every shelf slot. Stick each label to the physical rack position.</p>
+      <button class="btn btn-blue" style="margin-bottom:.8em;width:100%" onclick="printShelfBarcodes()">&#x1F5A8; Print All Shelf Labels on Label Maker (A/B/C/D)</button>
+      <div id="shelf-label-status" style="font-size:.7em;color:#888;margin-top:.4em"></div>
+    </div>
+    <div class="setting-group">
+      <h3>Platform</h3>
+      <div class="setting-row">
+        <div style="font-size:.85em;font-weight:600;color:#4da6ff;margin-bottom:.4em;margin-top:.2em">Label Printer</div>
+        <div class="setting-row" style="margin-bottom:.4em">
+          <label>Printer IP / USB</label>
+          <input class="inp" id="printer-identifier" type="text" placeholder="e.g. tcp://10.0.0.50 or usb://0x04f9:0x209c"
+            style="flex:2;font-size:.8em" onchange="savePrinterSettings()">
+        </div>
+        <div class="setting-row" style="margin-bottom:.6em">
+          <label>Model</label>
+          <select class="inp" id="printer-model" style="flex:2;font-size:.8em" onchange="savePrinterSettings()">
+            <option value="QL-810W">QL-810W (62mm)</option>
+            <option value="QL-800">QL-800 (62mm)</option>
+            <option value="QL-820NWB">QL-820NWB (62mm)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:.5em;margin-bottom:.8em">
+          <button class="btn btn-blue" style="flex:1;font-size:.8em" onclick="testPrint()">&#x1F5A8; Test Print</button>
+          <button class="btn btn-gray" style="flex:1;font-size:.8em" onclick="discoverPrinter()">&#x1F50D; Auto-Detect</button>
+        </div>
+        <div id="printer-status" style="font-size:.72em;color:#888;margin-bottom:.8em;min-height:1em"></div>
+        <div style="border-top:1px solid #1a1a1a;margin-bottom:.6em"></div>
+        <label>PDU Host</label>
+        <input type="text" id="set-pdu" placeholder="http://10.0.0.226" value="http://10.0.0.226">
+      </div>
+      <div class="setting-row" style="border:none">
+        <label>Server Version</label>
+        <span class="val" id="srv-ver" style="color:#555">–</span>
+        <span id="srv-channel-badge" style="margin-left:.5em;font-size:.65em;padding:2px 8px;border-radius:3px;font-weight:700"></span>
+      </div>
+      <div class="setting-row">
+        <label>Build Channel</label>
+        <select id="build-channel-select" class="inp" style="width:55%" onchange="switchBuildChannel(this.value)">
+          <option value="main">v1.0.0 — Production (stable)</option>
+          <option value="sandbox">v1.1.0-dev — Sandbox (development)</option>
+        </select>
+      </div>
+      <div class="setting-row" style="border:none;margin-top:.3em">
+        <label></label>
+        <div style="display:flex;gap:.5em;align-items:center">
+          <button class="btn btn-blue" style="font-size:.7em;padding:.3em .8em" onclick="switchBuildChannel(document.getElementById('build-channel-select').value)">⟳ Switch &amp; Restart</button>
+          <span id="channel-switch-msg" style="font-size:.7em;color:#555"></span>
+        </div>
+      </div>
+      <div class="setting-row" style="border:none">
+        <label>Git Commit</label>
+        <span class="val" id="srv-commit" style="color:#555;font-size:.7em">–</span>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>LED Strip Sync</h3>
+      <div class="setting-row">
+        <label>ESP32 IP</label>
+        <input type="text" id="led-ip" placeholder="e.g. 10.0.0.xxx" style="width:55%">
+      </div>
+      <div class="setting-row" style="border:none">
+        <label>Status</label>
+        <span class="val" id="led-status" style="color:#555">–</span>
+      </div>
+      <button class="btn btn-blue" style="margin-top:.4em" onclick="pingLED()">Ping LED Controller</button>
+      &nbsp;
+      <button class="btn btn-gray" onclick="pushLEDSlots()">Push Slot Map</button>
+      &nbsp;
+      <button class="btn btn-amber" onclick="otaLED()">OTA Update</button>
+      <div id="led-slot-grid" style="margin-top:.7em"></div>
+    </div>
+    <div class="setting-group">
+      <h3>Server Log</h3>
+      <div class="log-box" id="log-box">Loading…</div>
+      <button class="btn btn-gray" style="margin-top:.3em" onclick="loadLog()">↻ Refresh</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scan overlay -->
+<div id="scan-overlay">
+  <div class="scan-box">
+    <h2>Test a Miner</h2>
+    <p>Enter the miner's IP address</p>
+    <input class="scan-ip" id="scan-ip" type="text" placeholder="e.g. 10.0.0.52">
+    <div style="display:flex;align-items:center;gap:.5em;margin-bottom:.4em">
+      <input type="checkbox" id="run-ai" checked style="width:auto">
+      <label style="font-size:.78em;color:#888">Run AI diagnosis</label>
+    </div>
+    <div class="scan-btns">
+      <button class="btn btn-blue" style="flex:1;padding:.5em" onclick="testMiner()">Run Test</button>
+      <button class="btn btn-gray" style="padding:.5em .7em" onclick="hideScan()">✕</button>
+    </div>
+    <div class="scan-status" id="scan-status"></div>
+  </div>
+</div>
+
+
+<!-- Scan Modal -->
+<!-- Scanner capture: outside modal, top-level body element so position:fixed works -->
+<input id="scan-capture" type="text" autocomplete="off" autocorrect="off"
+  autocapitalize="off" spellcheck="false"
+  style="position:fixed;left:0;bottom:0;width:100%;height:1px;opacity:0;border:none;outline:none;
+         background:transparent;color:transparent;caret-color:transparent;z-index:9999;font-size:16px">
+
+<div id="scan-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:#111;border:2px solid #1a1a1a;border-radius:10px;padding:1.4em 1.6em;width:88%;max-width:380px;text-align:center">
+    <div id="scan-slot-label" style="font-size:1.1em;font-weight:700;color:#4da6ff;margin-bottom:.3em">Slot AL1-4</div>
+    <div id="scan-phase" style="font-size:.85em;color:#aaa;margin-bottom:.8em">Flashing LEDs…</div>
+    <div id="scan-icon" style="font-size:3em;margin-bottom:.4em">💡</div>
+    <div id="scan-msg" style="font-size:.8em;color:#777;min-height:2.5em;line-height:1.5;margin-bottom:.8em"></div>
+    <!-- Manual input — always visible, scanner keystrokes land here -->
+    <div id="scan-manual-row" style="display:flex;gap:.5em;margin-bottom:.6em;margin-top:.2em">
+      <input id="scan-manual-input" type="text" placeholder="Scan barcode or type serial..."
+        autocomplete="off" autocorrect="off" autocapitalize="characters"
+        style="flex:1;background:#1a1a1a;border:2px solid #4da6ff;border-radius:5px;color:#fff;
+               font-size:1em;padding:.5em .7em;font-family:monospace;letter-spacing:.05em"
+        onkeydown="if(event.key==='Enter'){submitManualBarcode();}"
+        oninput="_scanInputChanged(this)">
+      <button class="btn btn-blue" onclick="submitManualBarcode()" style="flex-shrink:0">Submit</button>
+    </div>
+    <div id="scan-result-box" style="display:none;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:6px;padding:.6em .8em;font-size:.78em;text-align:left;margin-bottom:.8em;line-height:1.5"></div>
+    <div style="display:flex;gap:.5em;justify-content:center">
+      <button class="btn btn-gray" onclick="cancelScan()">&#x2715; Cancel</button>
+      <button class="btn btn-blue" id="scan-retry-btn" style="display:none" onclick="retryScan()">&#x21BB; Retry</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+  // ── Barcode Scan Modal manual-entry helpers ─────────────────────────
+  var _bsmDebounce = null;
+  function _bsmInputChanged(el) {
+    clearTimeout(_bsmDebounce);
+    if (el.value.length >= 4) {
+      _bsmDebounce = setTimeout(function(){ _bsmSubmitManual(); }, 400);
+    }
+  }
+  function _bsmSubmitManual() {
+    var inp = document.getElementById('bsm-barcode-input');
+    if (!inp || !inp.value.trim()) return;
+    var val = inp.value.trim().toUpperCase();
+    var id = _scanMinerId;
+    if (!id) return;
+    fetch('/api/miners/' + id, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({serial_number: val})
+    }).then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.id) {
+          fetch('/api/scan/cancel', {method:'POST'}).catch(function(){});
+          _finishScan(id, {ok:true, barcode:val, miner_id:id});
+        } else {
+          _finishScan(id, {ok:false, message:(d&&d.detail)||'Save failed'});
+        }
+      }).catch(function(e){ _finishScan(id, {ok:false, message:''+e}); });
+  }
+
+var miners = [];
+var selId = null;
+var _selAfterLoad = null;
+var pollPaused = false;
+var ws = null;
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+function tick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-CA', {hour12: false});
+}
+setInterval(tick, 1000); tick();
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || 'info');
+  clearTimeout(t._t);
+  t._t = setTimeout(function() { t.className = ''; }, 3000);
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+var TABS = ['miners', 'scan', 'bench', 'history', 'pdu', 'settings', 'discovery', 'chat'];
+function showTab(name) {
+  if (name === 'bench') startPduPoll(); else stopPduPoll();
+  TABS.forEach(function(t) {
+    var tab = document.getElementById('tab-' + t);
+    var page = document.getElementById('page-' + t);
+    if (tab) tab.classList.toggle('active', t === name);
+    if (page) page.classList.toggle('active', t === name);
+  });
+  if (name === 'bench') renderBench();
+  if (name === 'scan') loadPollStatus();
+  if (name === 'history') loadHistory();
+  if (name === 'pdu') { loadPDU(); clearInterval(_pduPollTimer); _pduPollTimer = setInterval(loadPDU, 8000); }
+  if (name !== 'pdu') { clearInterval(_pduPollTimer); _pduPollTimer = null; }
+  if (name === 'settings') { loadAI(); loadLog(); loadLEDStatus(); loadBuildInfo(); }
+  if (name === 'chat') {
+    var fr = document.getElementById('chat-iframe');
+    // Only load once — keep session alive between tab switches
+    if (fr && !fr.dataset.loaded) { fr.dataset.loaded = '1'; }
+  }
+}
+
+// ── Miner scoring ──────────────────────────────────────────────────────────
+function sc(m) {
+  var s = m.last_test_result || m.status || '';
+  var hr = m.rt_hashrate || 0;
+  if (hr > 50) return 'pass';
+  if (s === 'psu_fault' || s === 'control_board_fault') return 'fail';
+  if (s === 'pass' || s === 'ready_to_deploy') return 'pass';
+  if (s === 'fail' || s === 'needs_repair' || s === 'parts_unit') return 'fail';
+  if (s === 'testing') return 'testing';
+  if (hr === 0 && s && s !== 'new' && s !== '') return 'fail';
+  return 'warn';
+}
+function maxTemp(m) {
+  if (!m.hashboards) return 0;
+  var t = 0;
+  m.hashboards.forEach(function(h) { if ((h.temp_max || h.temp_avg || 0) > t) t = h.temp_max || h.temp_avg || 0; });
+  return t;
+}
+function badge(m) {
+  var c = sc(m);
+  var s = m.last_test_result || m.status || '';
+  var L = {pass:'PASS', fail:'FAIL', testing:'TESTING', warn:'WARN'};
+  var C = {pass:'bp', fail:'bf', testing:'bt', warn:'bw'};
+  var extra = '';
+  if (s === 'psu_fault') extra = ' <span class="bdg bdg-fault">PSU</span>';
+  if (s === 'control_board_fault') extra = ' <span class="bdg bdg-fault">CTL</span>';
+  return '<span class="bdg ' + (C[c] || 'bn') + '">' + (L[c] || '?') + '</span>' + extra;
+}
+function tempBadge(m) {
+  var t = maxTemp(m);
+  if (!t) return '';
+  var cls = t < 75 ? 'tmp-g' : t <= 85 ? 'tmp-o' : 'tmp-r';
+  return '<span class="tmp-bdg ' + cls + '">🌡' + Math.round(t) + '°C</span>';
+}
+
+// ── Render miner list ──────────────────────────────────────────────────────
+function renderList() {
+  var el = document.getElementById('miner-list-body');
+  if (!el) return;
+  if (!miners.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⛏</div><div class="empty-msg">No miners yet.<br>Press ＋ Test to scan an IP.</div></div>';
+    return;
+  }
+  var order = {fail:0, warn:1, testing:2, pass:3};
+  var sorted = miners.slice().sort(function(a, b) { return (order[sc(a)] || 4) - (order[sc(b)] || 4); });
+  el.innerHTML = sorted.map(function(m) {
+    var worker = m.worker ? m.worker.split('.').slice(-1)[0] : '';
+    var s = sc(m);
+    var hrPct = Math.min(100, ((m.rt_hashrate || 0) / 110) * 100);
+    var barColor = s === 'pass' ? '#00cc44' : s === 'fail' ? '#cc2200' : s === 'testing' ? '#4da6ff' : '#ff9900';
+    var tb = tempBadge(m);
+    return '<div class="miner-card ' + s + (m.id === selId ? ' selected' : '') + '" onclick="sel(' + m.id + ')" ontouchstart="this._ts=Date.now()" ontouchend="if(Date.now()-this._ts<350)sel(' + m.id + ')">' +
+      '<div class="mc-row">' +
+        '<span class="mc-id" style="' + (!m.worker ? 'color:#ff9900;font-style:italic' : '') + '">' + (m.worker ? m.worker.split('.').slice(-1)[0] : '⚠ Worker Needed') + '</span>' +
+        '<div class="mc-badges">' + badge(m) + (tb ? ' ' + tb : '') + '</div>' +
+      '</div>' +
+      '<div class="mc-mdl">' + (m.model || m.miner_type || 'Unknown') + '</div>' +
+      '<div class="mc-inf">' + (m.ip_address || '–') +
+        (m.rt_hashrate ? ' · ' + m.rt_hashrate.toFixed(1) + ' TH/s' : '') +
+        (worker ? ' · ' + worker : '') +
+        (m.test_count ? ' · ' + m.test_count + 'x tested' : '') +
+      '</div>' +
+      (function(){
+        var rack = rackFromIP(m.ip_address);
+        var slot = m.location || m.rack_label;
+        if (slot) {
+          return '<div style="font-size:.72em;color:#4db87a;margin-top:.15em;font-weight:600">📍 ' + slot + '</div>';
+        } else if (rack) {
+          return '<div style="font-size:.65em;color:#556;margin-top:.1em">' + rack + '</div>';
+        }
+        return '<div style="font-size:.65em;color:#444;margin-top:.1em">📍 No slot assigned</div>';
+      })() +
+      '<div class="mc-hr-bar-wrap"><div class="mc-hr-bar" style="width:' + hrPct + '%;background:' + barColor + '"></div></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:.25em">' +
+        '<span style="font-size:.58em;color:#334">tap to view</span>' +
+        '<button style="background:#0044aa;border:none;color:#fff;font-size:.65em;padding:.15em .5em;border-radius:3px;cursor:pointer" onclick="event.stopPropagation();printLabel(' + m.id + ')">🖨</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+
+function rackFromIP(ip) {
+  if (!ip) return null;
+  if (ip.indexOf('192.168.3.') === 0) return 'Rack A (192.168.3.x)';
+  if (ip.indexOf('192.168.2.') === 0) return 'Rack B (192.168.2.x)';
+  if (ip.indexOf('192.168.5.') === 0) return 'Rack C (192.168.5.x)';
+  if (ip.indexOf('192.168.6.') === 0) return 'Rack D (192.168.6.x)';
+  if (ip.indexOf('10.') === 0)        return 'Main LAN (10.x)';
+  return null;
+}
+
+function stats(all) {
+  var pass = miners.filter(function(m) { return sc(m) === 'pass'; }).length;
+  var fail = miners.filter(function(m) { return sc(m) === 'fail'; }).length;
+  var testing = miners.filter(function(m) { return sc(m) === 'testing'; }).length;
+  var hist = all ? (all.length - miners.length) : 0;
+  document.getElementById('st').textContent = miners.length;
+  document.getElementById('sp').textContent = pass;
+  document.getElementById('sf').textContent = fail;
+  document.getElementById('sh').textContent = hist;
+  document.getElementById('miner-count').textContent = miners.length + ' online';
+}
+
+// ── Active vs archived logic ──────────────────────────────────────────────
+var HIST_STATUSES = ['needs_repair','parts_unit','ready_to_deploy','offline','archived'];
+function isActive(m) {
+  var st = (m.status||'').toLowerCase();
+  // Never show archived or inventory-only; show offline if it has a real IP
+  if (st === 'archived' || st === 'inventory_only') return false;
+  // Must have a real IP to be considered physically present
+  var ip = (m.ip_address || '').trim();
+  if (!ip || ip === '0.0.0.0') return false;
+  // ONLY show if seen in the last 3 minutes (i.e. current scan picked it up)
+  if (!m.last_seen) return false;
+  var ageMin = (Date.now() - new Date(m.last_seen).getTime()) / 60000;
+  return ageMin < 3;
+}
+
+// ── Load miners ────────────────────────────────────────────────────────────
+var _loadInProgress = false;
+function load() {
+  if (_loadInProgress) return;
+  _loadInProgress = true;
+  setTimeout(function(){ _loadInProgress = false; }, 8000);
+  document.getElementById('api-st').innerHTML = '<span class="dot do"></span>Loading…';
+  // Sync testbench miners to DB before loading
+  fetch('/api/admin/sync-testbench-miners', {method:'POST'}).catch(function(){});
+  fetch('/api/miners')
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(data) {
+      var all = Array.isArray(data) ? data : (data.miners || []);
+      miners = all.filter(isActive);
+      renderList();
+      stats(all);
+      _loadInProgress = false;
+      document.getElementById('api-st').innerHTML = '<span class="dot dg"></span>Online';
+      // Auto-select a miner after load if requested
+      if (_selAfterLoad !== null) {
+        var _id = _selAfterLoad;
+        _selAfterLoad = null;
+        selId = _id;
+        renderList();
+        var m = miners.find(function(x) { return x.id === _id; });
+        if (m) {
+          renderDetail(m);
+          setTimeout(function() {
+            var card = document.querySelector('.miner-card.selected');
+            if (card) card.scrollIntoView({behavior:'smooth', block:'nearest'});
+          }, 60);
+        } else {
+          // Miner not in active list — fetch directly
+          fetch('/api/miners/' + _id)
+            .then(function(r){return r.json();})
+            .then(function(m2){
+              selId = m2.id;
+              renderDetail(m2);
+            }).catch(function(){});
+        }
+      }
+    })
+    .catch(function(e) {
+      _loadInProgress = false;
+      document.getElementById('api-st').innerHTML = '<span class="dot dr"></span>' + e.message;
+    });
+}
+
+// ── Select / detail ────────────────────────────────────────────────────────
+
+// After rendering detail, auto-configure pool if miner has no pool
+function _afterRenderDetail(m) {
+  if (m && m.ip_address && !m.pool_url) {
+    autoPoolIfNeeded(m);
+  }
+}
+
+function sel(id) {
+  selId = id;
+  renderList();
+  var m = miners.find(function(x) { return x.id === id; });
+  if (m) { renderDetail(m); _afterRenderDetail(m); }
+}
+
+function renderDetail(m) {
+  var el = document.getElementById('miner-detail');
+  if (!el) return;
+  var hbs = (m.hashboards || []);
+  var hbHtml = hbs.map(function(hb) {
+    var pct = Math.round(hb.health_pct || 0);
+    var cls = pct >= 85 ? 'hb-g' : pct >= 60 ? 'hb-o' : 'hb-r';
+    return '<div class="hb-card">' +
+      '<div class="hb-pos">' + (hb.position || 'HB' + hb.index) + '</div>' +
+      '<div class="hb-pct ' + cls + '">' + pct + '%</div>' +
+      '<div class="hb-chips">' + (hb.chip_count || 0) + ' / ' + (hb.expected_chips || 144) + ' chips</div>' +
+      (hb.temp_avg ? '<div class="hb-chips">avg ' + Math.round(hb.temp_avg) + '°C</div>' : '') +
+    '</div>';
+  }).join('');
+
+  el.innerHTML =
+    '<div class="dtabs">' +
+      '<div class="dtab active" onclick="dTab(this,\'info\')">Info</div>' +
+      '<div class="dtab" onclick="dTab(this,\'hb\')">Hashboards</div>' +
+      '<div class="dtab" onclick="dTab(this,\'ai\')">AI</div>' +
+      '<div class="dtab" onclick="dTab(this,\'act\')">Actions</div>' +
+    '</div>' +
+    // Info
+    '<div class="dtab-page active" id="dp-info">' +
+      '<div style="display:flex;gap:.5em;margin-bottom:.4em">' +
+        '<button class="btn btn-blue" style="flex:2;font-size:1em;padding:.6em 0;letter-spacing:.03em" onclick="printLabel(' + m.id + ')">&#x1F5A8; Print Label</button>' +
+        '<button class="btn btn-green" style="flex:1;font-size:.85em;padding:.5em 0" id="scan-label-btn-' + m.id + '" onclick="scanMinerLabel(' + m.id + ')">📷 Scan S/N</button>' +
+        '<button class="btn" style="flex:1;font-size:.85em;padding:.5em 0;background:#cc00aa;border-color:#ff00cc;color:#fff" onclick="openSNModal(' + m.id + ')">&#x270f; S/N</button>' +
+      '</div>' +
+      '<div style="margin-bottom:.8em">' +
+        '<button class="btn" style="width:100%;font-size:.88em;padding:.5em 0;background:#0a2218;border:1px solid #00cc66;color:#00cc66" onclick="listenForIP(' + m.id + ', \'' + (m.location||'') + '\')">' +
+          '&#x1F4F6; Listen for IP &mdash; press IP button on miner' +
+        '</button>' +
+      '</div>' +
+      (m.fault_summary ? '<div style="background:#3a0000;border:1px solid #cc2200;border-radius:5px;padding:.45em .6em;font-size:.72em;margin-bottom:.5em"><div style="font-weight:700;color:#ff4444;margin-bottom:.15em">&#x26A0; AUTO-DIAGNOSED FAULT</div><div style="color:#ffaaaa;line-height:1.4">' + m.fault_summary + '</div></div>' : '') +
+(!m.serial_number ? '<div id="scan-warn-' + m.id + '" style="background:#332200;border:1px solid #ff9900;border-radius:5px;padding:.4em .6em;font-size:.72em;color:#ff9900;margin-bottom:.6em">⚠ Serial number missing — tap 📷 Scan to capture it</div>' : '') +
+      row('Model', m.model || '–') +
+      row('IP', m.ip_address) +
+      row('CT ID', m.ct_id || '–') +
+      row('Serial', m.serial_number || '–') +
+      row('MAC', m.mac_address || '–') +
+      row('Worker', m.worker || '–') +
+      row('Firmware', m.firmware_version || '–') +
+      row('Status', m.status || '–') +
+      row('Hashrate', (m.rt_hashrate ? m.rt_hashrate.toFixed(1) + ' / ' + (m.ideal_hashrate || '?') + ' TH/s' : '–')) +
+      row('PSU', (m.psu_voltage ? m.psu_voltage.toFixed(1) + 'V  ' + (m.psu_current ? m.psu_current.toFixed(1) + 'A' : '') : '–')) +
+      row('Tests', m.test_count || 0) +
+      row('Location', m.location || m.rack_label || '–') +
+    '</div>' +
+    // Hashboards
+    '<div class="dtab-page" id="dp-hb">' +
+      '<div class="hb-grid">' + (hbHtml || '<span style="color:#444;font-size:.78em">No hashboard data</span>') + '</div>' +
+    '</div>' +
+    // AI
+    '<div class="dtab-page" id="dp-ai">' +
+      '<div class="ai-box"><div class="ai-lbl">Issue</div>' +
+        '<div class="ai-txt">' + (m.ai_issue_summary || 'No diagnosis yet') + '</div></div>' +
+      '<div class="ai-box"><div class="ai-lbl">Fix</div>' +
+        '<div class="ai-txt ai-fix">' + (m.ai_suggested_fix || '–') + '</div></div>' +
+      '<div class="info-row"><span class="lbl">Severity</span><span class="val">' + (m.ai_severity || '–') + '</span></div>' +
+      '<div class="info-row"><span class="lbl">Auto-fixable</span><span class="val">' + (m.ai_auto_fixable ? 'Yes' : 'No') + '</span></div>' +
+      '<button class="btn btn-blue" style="margin-top:.5em" onclick="doTest(' + m.id + ',\'' + m.ip_address + '\')">↻ Re-run AI Test</button>' +
+    '</div>' +
+    // Actions
+    '<div class="dtab-page" id="dp-act">' +
+      '<div class="actions">' +
+        '<button class="btn btn-blue" onclick="printLabel(' + m.id + ')">🖨 Print Label</button>' +
+        '<button class="btn btn-green" onclick="markStatus(' + m.id + ',\'ready\')">✓ Mark Ready</button>' +
+        '<button class="btn btn-amber" onclick="markStatus(' + m.id + ',\'parts\')">⚠ Parts Unit</button>' +
+        '<button class="btn btn-gray" onclick="flashLED(' + m.id + ')">💡 Flash LED</button>' +
+        '<button class="btn btn-red" onclick="cyclePDU(' + m.id + ')">⚡ Cycle Power</button>' +
+      '</div>' +
+      '<div class="result-box" id="action-result">–</div>' +
+    '</div>';
+}
+
+function row(label, val) {
+  return '<div class="info-row"><span class="lbl">' + label + '</span><span class="val">' + val + '</span></div>';
+}
+
+function dTab(el, name) {
+  el.closest('.miner-detail').querySelectorAll('.dtab').forEach(function(t) { t.classList.remove('active'); });
+  el.closest('.miner-detail').querySelectorAll('.dtab-page').forEach(function(p) { p.classList.remove('active'); });
+  el.classList.add('active');
+  var dp = document.getElementById('dp-' + name);
+  if (dp) dp.classList.add('active');
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+function setActionResult(msg, color) {
+  var el = document.getElementById('action-result');
+  if (el) { el.textContent = msg; el.style.color = color || '#aaa'; }
+}
+
+var _scanCountdown = null;
+var _scanMinerId = null;
+var _scanPollTimer = null;
+
+function scanMinerLabel(id) {
+  _scanMinerId = id;
+  // Fetch fresh miner data to check S/N (don't trust stale local array)
+  fetch('/api/miners/' + id)
+    .then(function(r) { return r.json(); })
+    .then(function(miner) {
+      var hasSN = miner && miner.serial_number && miner.serial_number.trim() !== '' && miner.serial_number !== '— pending scan —';
+      if (hasSN) {
+        _showRescanConfirm(id, miner.serial_number);
+      } else {
+        _doScanMiner(id);
+      }
+    })
+    .catch(function() {
+      // If fetch fails just go straight to scan
+      _doScanMiner(id);
+    });
+}
+
+function _showRescanConfirm(id, currentSN) {
+  var modal = document.getElementById('rescan-confirm-modal');
+  document.getElementById('rcm-sn').textContent = currentSN;
+  modal.style.display = 'flex';
+  document.getElementById('rcm-yes').onclick = function() {
+    modal.style.display = 'none';
+    _doScanMiner(id);
+  };
+  document.getElementById('rcm-no').onclick = function() {
+    modal.style.display = 'none';
+  };
+}
+
+function _doScanMiner(id) {
+  _scanMinerId = id;
+
+  // Show scan modal with countdown
+  var modal = document.getElementById('barcode-scan-modal');
+  document.getElementById('bsm-countdown').textContent = '30';
+  document.getElementById('bsm-status').textContent = '⏳ Waiting for scanner… aim at barcode';
+  document.getElementById('bsm-status').style.color = '#4da6ff';
+  modal.style.display = 'flex';
+
+  var btn = document.getElementById('scan-label-btn-' + id);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning…'; btn.style.background='#b86000'; }
+  // Focus the manual input so typed/scanned input lands there
+  setTimeout(function() {
+    var inp = document.getElementById('bsm-barcode-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }, 100);
+
+  // Visual countdown only
+  var secs = 30;
+  _scanCountdown = setInterval(function() {
+    secs--;
+    var el = document.getElementById('bsm-countdown');
+    if (el) el.textContent = secs;
+    if (secs <= 0) { clearInterval(_scanCountdown); }
+  }, 1000);
+
+  // Single fetch path — Event handoff on server means this returns as soon
+  // as a barcode is scanned (or 30s timeout). No poll timer needed.
+  var _scanAbort = new AbortController();
+  setTimeout(function() { _scanAbort.abort(); }, 32000);
+
+  fetch('/api/scan/miner/' + id, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: '{}',
+    signal: _scanAbort.signal
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(d) {
+    clearInterval(_scanCountdown);
+    _finishScan(id, d);
+  })
+  .catch(function(err) {
+    clearInterval(_scanCountdown);
+    if (err && err.name === 'AbortError') {
+      _finishScan(id, {reason: 'timeout'});
+    } else {
+      _finishScan(id, {ok: false, message: err.message || 'Network error'});
+    }
+  });
+}
+
+function _finishScan(id, result) {
+  clearInterval(_scanCountdown);
+  clearInterval(_scanPollTimer);
+  var modal = document.getElementById('barcode-scan-modal');
+  if (modal) modal.style.display = 'none';
+  var bsmInp = document.getElementById('bsm-barcode-input');
+  if (bsmInp) bsmInp.value = '';
+  var btn = document.getElementById('scan-label-btn-' + id);
+  if (btn) { btn.disabled = false; btn.textContent = '\uD83D\uDCF7 Scan S/N'; btn.style.background = ''; }
+
+  if (!result || result.reason === 'timeout') {
+    toast('\u23F1 Scanner timed out — tap Scan S/N to try again', 'warn');
+    return;
+  }
+  if (result.ok) {
+    var targetId = result.miner_id || id;
+    var savedVal = result.barcode || '';
+    var warn = document.getElementById('scan-warn-' + targetId);
+    if (warn) warn.style.display = 'none';
+    toast('\u2705 S/N Saved: ' + savedVal, 'ok');
+    showTab('miners');
+    selId = targetId;
+    // Fetch fresh miner directly from DB — guaranteed to have the new serial
+    fetch('/api/miners/' + targetId)
+      .then(function(r){ return r.json(); })
+      .then(function(fresh){
+        var idx = miners.findIndex(function(x){ return x.id === targetId; });
+        if (idx >= 0) miners[idx] = fresh; else miners.push(fresh);
+        renderList();
+        renderDetail(fresh);
+      })
+      .catch(function(){ _selAfterLoad = targetId; load(); });
+  } else if (result.reason === 'duplicate' || result.reason === 'already_set') {
+    toast('\u2705 Already in System: ' + (result.barcode || result.message || ''), 'ok');
+    var navId = result.existing_id || id;
+    showTab('miners');
+    selId = navId;
+    fetch('/api/miners/' + navId)
+      .then(function(r){ return r.json(); })
+      .then(function(fresh){
+        var idx = miners.findIndex(function(x){ return x.id === navId; });
+        if (idx >= 0) miners[idx] = fresh; else miners.push(fresh);
+        renderList();
+        renderDetail(fresh);
+      })
+      .catch(function(){ _selAfterLoad = navId; load(); });
+  } else {
+    toast('\u26A0 ' + (result.message || 'Scan failed'), 'warn');
+  }
+}
+
+
+function closeScanModal() {
+  clearInterval(_scanCountdown);
+  clearInterval(_scanPollTimer);
+  var modal = document.getElementById('barcode-scan-modal');
+  if (modal) modal.style.display = 'none';
+  var inp = document.getElementById('bsm-barcode-input');
+  if (inp) inp.value = '';
+  var btn = _scanMinerId ? document.getElementById('scan-label-btn-' + _scanMinerId) : null;
+  if (btn) { btn.disabled = false; btn.textContent = '\uD83D\uDCF7 Scan S/N'; btn.style.background = ''; }
+  fetch('/api/scan/cancel', {method:'POST'}).catch(function(){});
+}
+
+function showPopup(type, title, sub) {
+  // type: 'success' (green) | 'warning' (orange) | 'error' (red)
+  var colors = {
+    success: {bg:'#0a2e0a', border:'#00cc44', title:'#00cc44', sub:'#88cc88'},
+    warning: {bg:'#2e1a00', border:'#ff9900', title:'#ff9900', sub:'#cc8833'},
+    error:   {bg:'#2e0a0a', border:'#cc2200', title:'#ff4444', sub:'#cc6666'},
+  };
+  var c = colors[type] || colors.success;
+  var m = document.getElementById('db-confirm-modal');
+  m.style.background = 'rgba(0,0,0,.6)';
+  var box = m.querySelector('.popup-box');
+  box.style.background = c.bg;
+  box.style.border = '2px solid ' + c.border;
+  document.getElementById('dbc-title').textContent = title;
+  document.getElementById('dbc-title').style.color = c.title;
+  document.getElementById('dbc-barcode').textContent = sub || '';
+  document.getElementById('dbc-barcode').style.color = c.sub;
+  document.getElementById('dbc-field').textContent = 'tap to dismiss';
+  document.getElementById('dbc-field').style.color = c.border;
+  m.style.display = 'flex';
+  clearTimeout(m._t);
+  m._t = setTimeout(function() { m.style.display = 'none'; }, 5000);
+}
+function showDBConfirm(title, barcode, field) {
+  showPopup('success', title, barcode ? barcode : field);
+}
+
+// ── Free scan ────────────────────────────────────────────────────────────────
+var _freeScanActive = false;
+
+var _netScanInterval = null;
+
+function startNetScan() {
+  var btn = document.getElementById('net-scan-btn');
+  if (btn) { btn.textContent = '🔄 Scanning…'; btn.disabled = true; }
+  toast('Scanning network for ASICs…', 'info');
+  fetch('/api/discovery/scan/full', {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cidrs: ['10.0.0.0/24','192.168.2.0/28','192.168.3.0/28','192.168.5.0/28','192.168.6.0/28'], concurrency: 50, timeout: 2.5})})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (btn) { btn.textContent = '🔍 Scan Network'; btn.disabled = false; }
+      var n = d.new || 0;
+      var u = d.updated || 0;
+      if (n > 0) {
+        toast('✅ ' + n + ' new ASIC' + (n > 1 ? 's' : '') + ' added', 'ok');
+        _selAfterLoad = d.new_miners[0].id;
+      } else if (u > 0) {
+        toast('↻ ' + u + ' miner' + (u > 1 ? 's' : '') + ' updated', 'ok');
+      } else {
+        toast('No new ASICs found', 'info');
+      }
+      load();
+    })
+    .catch(function(e) {
+      if (btn) { btn.textContent = '🔍 Scan Network'; btn.disabled = false; }
+      toast('Scan error: ' + e.message, 'err');
+    });
+}
+
+// Auto net scan every 60s — covers ALL rack subnets + LAN, always reloads
+(function() {
+  clearInterval(_netScanInterval);
+  var _autoScanInProgress = false;
+  function _doAutoScan() {
+    if (document.hidden) return;
+    if (_autoScanInProgress) return;
+    _autoScanInProgress = true;
+    fetch('/api/discovery/scan/full', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:'{}'})
+      .then(function(r){ return r.json(); })
+      .then(function(){ _autoScanInProgress = false; load(); })
+      .catch(function(){ _autoScanInProgress = false; });
+  }
+  _netScanInterval = setInterval(_doAutoScan, 60000);
+  // Run once on page load too
+  setTimeout(_doAutoScan, 3000);
+})();
+
+function startFreeScan() {
+  if (_freeScanActive) return;
+  _freeScanActive = true;
+  var btn = document.getElementById('free-scan-btn');
+  if (btn) { btn.textContent = '⏳ Scanning…'; btn.disabled = true; }
+  toast('Point scanner at any barcode…', 'info');
+  fetch('/api/scan/free', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      _freeScanActive = false;
+      if (btn) { btn.textContent = '🔍 Scan'; btn.disabled = false; }
+      if (!d.ok) { toast(d.message || 'Scan timed out', 'err'); return; }
+      if (d.found) {
+        toast('✅ Found: ' + (d.miner.model || 'Miner'), 'ok');
+        showTab('miners');
+        _selAfterLoad = d.miner.id;
+        load();
+      } else {
+        openAddMinerModal(d.barcode);
+      }
+    })
+    .catch(function(e) {
+      _freeScanActive = false;
+      if (btn) { btn.textContent = '🔍 Scan'; btn.disabled = false; }
+      toast('Scan error: ' + e.message, 'err');
+    });
+}
+
+function openAddMinerModal(barcode) {
+  document.getElementById('amm-barcode').textContent = barcode;
+  document.getElementById('amm-ip').value = '';
+  document.getElementById('amm-model').value = '';
+  document.getElementById('amm-worker').value = '';
+  document.getElementById('amm-result').textContent = '';
+  var modal = document.getElementById('add-miner-modal');
+  modal.style.display = 'flex';
+  setTimeout(function() { document.getElementById('amm-ip').focus(); }, 100);
+}
+
+function closeAddMinerModal() {
+  document.getElementById('add-miner-modal').style.display = 'none';
+}
+
+function submitAddMiner() {
+  var barcode = document.getElementById('amm-barcode').textContent.trim();
+  var ip      = document.getElementById('amm-ip').value.trim();
+  var model   = document.getElementById('amm-model').value.trim();
+  var worker  = document.getElementById('amm-worker').value.trim();
+  var status  = document.getElementById('amm-status').value;
+  var res     = document.getElementById('amm-result');
+  if (!ip) { res.textContent = '⚠ IP address is required'; res.style.color = '#ff9900'; return; }
+  res.textContent = 'Adding…'; res.style.color = '#aaa';
+  var isMac = (barcode.length === 17 && barcode.split(':').length === 6)
+           || (barcode.length === 12 && /^[0-9a-fA-F]+$/.test(barcode));
+  var mac = isMac ? barcode : null;
+  if (mac && mac.length === 12) mac = mac.match(/.{2}/g).join(':').toUpperCase();
+  var serial = isMac ? null : barcode;
+  fetch('/api/miners', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      ip_address: ip, serial_number: serial || '',
+      mac_address: mac || '', model: model || null,
+      worker: worker || null, status: status,
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.id || d.ip_address) {
+      res.textContent = '✅ Added!'; res.style.color = '#00cc44';
+      showDBConfirm('✅ Entered into Database', barcode, 'new miner');
+      load();
+      setTimeout(function() {
+        closeAddMinerModal();
+        showTab('miners');
+        if (d.id) setTimeout(function() { sel(d.id); }, 400);
+      }, 800);
+    } else {
+      res.textContent = '❌ ' + (d.detail || JSON.stringify(d));
+      res.style.color = '#cc4444';
+    }
+  })
+  .catch(function(e) { res.textContent = '❌ ' + e.message; res.style.color = '#cc4444'; });
+}
+
+
+var _snMinerId = null;
+function openSNModal(id) {
+  _snMinerId = id;
+  document.getElementById('sn-entry-input').value = '';
+  document.getElementById('sn-entry-result').textContent = '';
+  var m = document.getElementById('sn-entry-modal');
+  m.style.display = 'flex';
+  setTimeout(function() { document.getElementById('sn-entry-input').focus(); }, 100);
+}
+function closeSNModal() {
+  document.getElementById('sn-entry-modal').style.display = 'none';
+  _snMinerId = null;
+}
+function submitSNEntry() {
+  var sn = document.getElementById('sn-entry-input').value.trim().toUpperCase();
+  var res = document.getElementById('sn-entry-result');
+  if (!sn) { res.textContent = '⚠ Enter a serial number'; res.style.color = '#ff9900'; return; }
+  if (!_snMinerId) { res.textContent = '⚠ No miner selected'; return; }
+  res.textContent = 'Saving…'; res.style.color = '#aaa';
+  var mid = _snMinerId;
+
+  fetch('/api/miners/' + mid, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({serial_number: sn})
+  })
+  .then(function(r) {
+    if (r.status === 409) {
+      return r.json().then(function(d) { throw {type:'dup', msg: d.detail || 'Duplicate S/N'}; });
+    }
+    if (!r.ok) {
+      return r.json().then(function(d) { throw {type:'err', msg: d.detail || 'Save failed (' + r.status + ')'}; });
+    }
+    return r.json();
+  })
+  .then(function(d) {
+    var alreadyHadIt = d.serial_number === sn && d.id === mid;
+    // Check if it already had this exact SN before we patched
+    // We detect this by comparing: if no warn banner existed it was already set
+    var warnEl = document.getElementById('scan-warn-' + mid);
+    var wasAlreadySet = alreadyHadIt && (!warnEl || warnEl.style.display === 'none');
+    if (wasAlreadySet) {
+      res.textContent = '✅ Already in system'; res.style.color = '#00cc44';
+      showPopup('success', '✅ Machine in System', sn);
+      setTimeout(function() { closeSNModal(); }, 400);
+    } else {
+      res.textContent = '✅ Saved!'; res.style.color = '#00cc44';
+      showPopup('success', '✅ Saved to Database', sn);
+      if (warnEl) warnEl.style.display = 'none';
+      setTimeout(function() {
+        closeSNModal();
+        fetch('/api/labels/' + mid + '/print', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+          .then(function(r){return r.json();})
+          .then(function(p){ if(p.success||p.did_print) toast('🖨 Label reprinted with S/N','ok'); });
+        load();
+      }, 400);
+    }
+  })
+  .catch(function(e) {
+    if (e && e.type === 'dup') {
+      res.textContent = '✅ Machine in System'; res.style.color = '#00cc44';
+      showPopup('success', '✅ Machine in System', e.msg);
+    } else {
+      var msg = (e && e.msg) ? e.msg : (e.message || 'Unknown error');
+      res.textContent = '❌ ' + msg; res.style.color = '#cc4444';
+      showPopup('error', '❌ Save Failed', msg);
+    }
+  });
+}
+
+function printLabel(id, force) {
+  setActionResult('Sending to printer…');
+  toast('Sending label…', 'info');
+  var url = '/api/labels/' + id + '/print' + (force ? '?force=true' : '');
+  fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+    .then(function(r) {
+      return r.json().then(function(d) { return {status: r.status, data: d}; });
+    })
+    .then(function(res) {
+      var status = res.status, d = res.data;
+
+      // ── 422: structured info/fault response ──────────────────────────────
+      if (status === 422) {
+        var detail = d.detail || d;
+        var type   = detail.type || '';
+        var action = detail.next_action || '';
+        var faults = (detail.hw_errors || detail.info_errors || []).join(', ');
+        var model  = detail.model || '';
+        var serial = detail.serial || '(no serial)';
+        var loc    = detail.location || '(no slot)';
+
+        if (type === 'info_needed') {
+          // Missing serial / slot — show instructions popup
+          showPrintActionModal({
+            icon: '\u26A0\uFE0F',
+            title: 'Info Needed Before Printing',
+            lines: [
+              model + (serial !== '(no serial)' ? ' · ' + serial : ''),
+              action,
+            ],
+            actions: [
+              {label: '\u274C Dismiss', fn: 'closePrintModal()'},
+              {label: '[Scan] Scan Serial', fn: 'scanMinerLabel(' + id + '); closePrintModal();'},
+            ]
+          });
+        } else if (type === 'hw_info_needed') {
+          showDiagTicket(id, detail);
+        } else {
+          showPrintActionModal({
+            icon: '\u26A0\uFE0F',
+            title: 'Cannot Print',
+            lines: [action || JSON.stringify(detail).substring(0, 120)],
+            actions: [
+              {label: 'Dismiss', fn: 'closePrintModal()'},
+              {label: 'Print Anyway', fn: 'printLabel(' + id + ', true); closePrintModal();'},
+            ]
+          });
+        }
+        setActionResult('\u26A0 ' + (action || 'Info needed'), '#ffaa00');
+        return;
+      }
+
+      // ── Normal success / failure ──────────────────────────────────────────
+      var ok = d.success || d.did_print;
+      if (ok) {
+        setActionResult('\u2705 Label printed!', '#00cc44');
+        toast('\u2705 Label printed!', 'ok');
+      } else {
+        var errMsg = d.message || d.detail || JSON.stringify(d).substring(0, 100);
+        setActionResult('\u26A0 ' + errMsg, '#ff9900');
+        showPrintActionModal({
+          icon: '[Print]\uFE0F',
+          title: 'Print Error',
+          lines: [errMsg],
+          actions: [
+            {label: 'Dismiss', fn: 'closePrintModal()'},
+            {label: 'Retry', fn: 'printLabel(' + id + '); closePrintModal();'},
+            {label: 'Force Print', fn: 'printLabel(' + id + ', true); closePrintModal();'},
+          ]
+        });
+      }
+    })
+    .catch(function(e) {
+      setActionResult('\u274C ' + e.message, '#cc4444');
+      toast('Print error: ' + e.message, 'err');
+    });
+}
+
+// ── Print action modal ────────────────────────────────────────────────────────
+function showPrintActionModal(opts) {
+  var existing = document.getElementById('print-action-modal');
+  if (existing) existing.remove();
+
+  var lines = (opts.lines || []).map(function(l) {
+    return '<div style="font-size:.78em;color:#ccc;margin:.2em 0">' + (l||'') + '</div>';
+  }).join('');
+
+  var btns = (opts.actions || []).map(function(a) {
+    return '<button class="btn" style="font-size:.8em;padding:.4em .8em;margin:.2em" ' +
+      'onclick="' + a.fn + '">' + a.label + '</button>';
+  }).join('');
+
+  var html = '<div id="print-action-modal" onclick="if(event.target===this)closePrintModal()" ' +
+    'style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;' +
+    'display:flex;align-items:center;justify-content:center">' +
+    '<div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;' +
+    'padding:1.4em;max-width:440px;width:92%;box-sizing:border-box;text-align:center">' +
+    '<div style="font-size:2em;margin-bottom:.3em">' + (opts.icon||'\u26A0\uFE0F') + '</div>' +
+    '<div style="font-size:.95em;font-weight:700;color:#fff;margin-bottom:.5em">' + (opts.title||'') + '</div>' +
+    lines +
+    '<div style="margin-top:.8em;display:flex;flex-wrap:wrap;justify-content:center">' + btns + '</div>' +
+    '</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closePrintModal() {
+  var el = document.getElementById('print-action-modal');
+  if (el) el.remove();
+}
+
+function markStatus(id, which) {
+  fetch('/api/miners/' + id + '/mark_' + (which === 'ready' ? 'ready' : 'parts'), {method: 'POST'})
+    .then(function() { toast(which === 'ready' ? '✅ Marked ready' : '⚠ Marked parts', 'ok'); load(); })
+    .catch(function(e) { toast('Error: ' + e.message, 'err'); });
+}
+
+function flashLED(id) {
+  fetch('/api/miners/' + id + '/led?blink=true', {method: 'POST'}).catch(function() {});
+  toast('💡 LED flashing', 'info');
+}
+
+function cyclePDU(id) {
+  var m = miners.find(function(x) { return x.id === id; });
+  if (!m || !m.location) { toast('No PDU slot assigned to this miner', 'err'); return; }
+  var slot = BENCH_LAYOUT.find(function(r) {
+    return r.slots.find(function(s) { return s.label === (m.location || '').toUpperCase(); });
+  });
+  if (!slot) { toast('PDU outlet not mapped', 'err'); return; }
+  var s = slot.slots.find(function(s) { return s.label === (m.location || '').toUpperCase(); });
+  fetch('/api/bench/outlet/' + s.outlet + '/cycle', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { toast('⚡ Outlet cycled', d.ok ? 'ok' : 'err'); })
+    .catch(function(e) { toast('PDU error: ' + e.message, 'err'); });
+}
+
+function doTest(id, ip) {
+  setActionResult('Testing ' + ip + '…');
+  toast('Running test…', 'info');
+  fetch('/api/miners/test?ip_address=' + encodeURIComponent(ip) + '&run_ai=true', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { setActionResult('✅ Test complete'); toast('Test done', 'ok'); load(); setTimeout(function() { sel(id); }, 600); })
+    .catch(function(e) { setActionResult('❌ ' + e.message, '#cc4444'); });
+}
+
+// ── Scan overlay ───────────────────────────────────────────────────────────
+function showScan() { document.getElementById('scan-overlay').classList.add('show'); document.getElementById('scan-ip').focus(); }
+function hideScan() { document.getElementById('scan-overlay').classList.remove('show'); document.getElementById('scan-status').textContent = ''; }
+
+function testMiner() {
+  var ip = document.getElementById('scan-ip').value.trim();
+  var ai = document.getElementById('run-ai').checked;
+  if (!ip) { document.getElementById('scan-status').textContent = 'Enter an IP address first'; return; }
+  document.getElementById('scan-status').innerHTML = '<span class="spinner"></span> Testing ' + ip + '…';
+  fetch('/api/miners/test?ip_address=' + encodeURIComponent(ip) + '&run_ai=' + ai, {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.id) { hideScan(); toast('✅ ' + (d.model || 'Miner') + ' added', 'ok'); load(); setTimeout(function() { sel(d.id); }, 600); }
+      else { document.getElementById('scan-status').textContent = '❌ ' + (d.detail || JSON.stringify(d)); }
+    })
+    .catch(function(e) { document.getElementById('scan-status').textContent = '❌ ' + e.message; });
+}
+
+document.getElementById('scan-ip').addEventListener('keydown', function(e) { if (e.key === 'Enter') testMiner(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideScan(); });
+
+// ── Discovery page ─────────────────────────────────────────────────────────
+function loadPollStatus() {
+  fetch('/api/discovery/polling/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      pollPaused = d.paused;
+      var btn = document.getElementById('poll-toggle-btn');
+      if (btn) btn.textContent = d.paused ? '▶ Resume' : '⏸ Pause';
+      var el = document.getElementById('poll-status');
+      if (el) el.textContent = (d.running ? (d.paused ? '⏸ Paused' : '🔄 Scanning') : '⛔ Stopped') +
+        '\nCIDR: ' + (d.cidr || '–') + '  Interval: ' + (d.interval_seconds || '–') + 's' +
+        '\nLast scan: ' + (d.found_this_scan || 0) + ' found  Total: ' + (d.total_found || 0);
+      if (d.cidr) { var ci = document.getElementById('poll-cidr'); if (ci) ci.value = d.cidr; }
+    }).catch(function() {});
+}
+
+function togglePolling() {
+  fetch('/api/discovery/polling/' + (pollPaused ? 'resume' : 'pause'), {method: 'POST'})
+    .then(function() { loadPollStatus(); }).catch(function() {});
+}
+
+function updatePollCidr() {
+  var v = document.getElementById('poll-cidr').value.trim();
+  fetch('/api/discovery/polling/config?cidr=' + encodeURIComponent(v), {method: 'POST'})
+    .then(function() { toast('CIDR updated', 'ok'); loadPollStatus(); }).catch(function() {});
+}
+
+function updatePollInterval() {
+  var v = document.getElementById('poll-interval').value;
+  fetch('/api/discovery/polling/config?interval=' + v, {method: 'POST'})
+    .then(function() { toast('Interval updated', 'ok'); loadPollStatus(); }).catch(function() {});
+}
+
+function runRangeScan() {
+  var s = document.getElementById('scan-range-start').value.trim();
+  var e = document.getElementById('scan-range-end').value.trim();
+  if (!s || !e) { toast('Enter start and end IPs', 'err'); return; }
+  document.getElementById('scan-result').textContent = 'Scanning…';
+  fetch('/api/discovery/scan/range?start=' + encodeURIComponent(s) + '&end=' + encodeURIComponent(e), {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('scan-result').textContent = 'Found: ' + (d.found || 0) + ' miners\n' + JSON.stringify(d, null, 2).slice(0, 300);
+      load();
+    }).catch(function(e) { document.getElementById('scan-result').textContent = '❌ ' + e.message; });
+}
+
+function loadPDU() {
+  var el = document.getElementById('pdu-status');
+  if (el) el.textContent = 'Loading PDU…';
+  fetch('/api/pdu/snapshot')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (el) el.textContent = '⚡ ' + d.device + '\nTotal: ' + d.total_power_w + 'W\n' +
+        d.phases.map(function(p) { return 'L' + p.phase + ': ' + p.power_w + 'W  ' + p.current_a + 'A'; }).join('\n');
+    }).catch(function(e) { if (el) el.textContent = 'PDU unavailable: ' + e.message; });
+}
+
+function identifyBench() {
+  var res = document.getElementById('pdu-result');
+  res.style.display = 'block';
+  res.textContent = 'Fingerprinting outlets…';
+  fetch('/api/bench/identify', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      res.textContent = 'Scanned: ' + d.scanned_outlets + ' active outlets\n\n' +
+        d.suggestions.map(function(s) {
+          return 'Outlet ' + s.outlet_num + ': ' + s.watts + 'W → ' + s.fingerprint +
+            (s.estimated_th ? ' (~' + s.estimated_th + ' TH)' : '') +
+            ' [' + s.confidence + ']';
+        }).join('\n');
+      toast('Fingerprint done: ' + d.scanned_outlets + ' outlets', 'ok');
+    }).catch(function(e) { res.textContent = '❌ ' + e.message; });
+}
+
+// ── Bench layout ───────────────────────────────────────────────────────────
+var BENCH_LAYOUT = [
+  {rack:'A', phase:'L1', slots:[{label:'AL1-4',outlet:4,pos:1},{label:'AL1-3',outlet:3,pos:2},{label:'AL1-2',outlet:2,pos:3},{label:'AL1-1',outlet:1,pos:4}]},
+  {rack:'B', phase:'L2', slots:[{label:'BL2-7',outlet:7,pos:1},{label:'BL2-6',outlet:6,pos:2},{label:'BL2-5',outlet:5,pos:3}]},
+  {rack:'C', phase:'L2', slots:[{label:'CL2-4',outlet:4,pos:1},{label:'CL2-3',outlet:3,pos:2},{label:'CL2-2',outlet:2,pos:3},{label:'CL2-1',outlet:1,pos:4}]},
+  {rack:'D', phase:'L1', slots:[{label:'DL1-8',outlet:8,pos:1},{label:'DL1-7',outlet:7,pos:2},{label:'DL1-6',outlet:6,pos:3},{label:'DL1-5',outlet:5,pos:4}]},
+];
+
+// PDU outlet data keyed by outlet name (e.g. 'L1-2a2')
+var _pduOutlets = {};
+
+function loadPduAmps(cb) {
+  fetch('/api/pdu/outlets')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _pduOutlets = {};
+      (d.outlets || []).forEach(function(o){
+        // Index by outlet number (primary key for slot matching)
+        _pduOutlets[o.outlet] = o;
+        // Also index by name for lookup flexibility
+        if (o.name) _pduOutlets[o.name.toUpperCase()] = o;
+      });
+      if (cb) cb();
+    })
+    .catch(function(){ if (cb) cb(); });
+}
+
+function _ampsForSlot(slot) {
+  // Match by outlet number (1-24)
+  return _pduOutlets[slot.outlet] || null;
+}
+
+function _ampsHtml(pduO) {
+  if (!pduO) return '<div class="slot-amps amps-off">– A</div>';
+  var a = pduO.current_a || 0;
+  var cls = a > 16 ? 'amps-crit' : a > 13 ? 'amps-hi' : a > 0.5 ? 'amps-ok' : 'amps-off';
+  var w = pduO.power_w || pduO.watts || 0;
+  var txt = a > 0.05 ? a.toFixed(1) + ' A' + (w > 0 ? ' · ' + w + ' W' : '') : '– A';
+  return '<div class="slot-amps ' + cls + '">' + txt + '</div>';
+}
+
+function renderBench() {
+  var grid = document.getElementById('bench-grid');
+  if (!grid) return;
+  var byLoc = {};
+  miners.forEach(function(m) {
+    if (m.location) byLoc[m.location.toUpperCase()] = m;
+    if (m.rack_label) byLoc[m.rack_label.toUpperCase()] = m;
+  });
+  var total = BENCH_LAYOUT.reduce(function(a, r) { return a + r.slots.length; }, 0);
+  var occ = Object.keys(byLoc).length;
+  var sub = document.getElementById('bench-subtitle');
+  if (sub) sub.textContent = occ + ' / ' + total + ' slots occupied';
+
+  grid.innerHTML = BENCH_LAYOUT.map(function(rack) {
+    var slotsHtml = rack.slots.map(function(slot) {
+      var m = byLoc[slot.label.toUpperCase()];
+      var pduO = _ampsForSlot(slot);
+      var ampsHtml = _ampsHtml(pduO);
+      if (m) {
+        var s = sc(m);
+        var hr = m.rt_hashrate ? m.rt_hashrate.toFixed(1) + ' TH/s' : '';
+        var w = m.worker ? m.worker.split('.').slice(-1)[0] : '';
+        return '<div class="slot occupied ' + s + '" ontouchstart="this._ts=Date.now()" ontouchend="if(Date.now()-this._ts<300)selFromBench(' + m.id + ',\'' + slot.label + '\')" onclick="selFromBench(' + m.id + ',\'' + slot.label + '\')">' +
+          '<span class="slot-outlet">' + slot.label + '</span><span class="slot-phase">· ' + rack.phase + '</span>' +
+          '<div class="slot-model">' + (m.model || m.miner_type || '?') + '</div>' +
+          '<div class="slot-sub">' + (w || m.ip_address || '') + (hr ? ' · ' + hr : '') + '</div>' +
+          ampsHtml +
+        '</div>';
+      }
+      return '<div class="slot" onclick="touchSlotForScan(0,\'' + slot.label + '\',null)">' +
+        '<span class="slot-outlet">' + slot.label + '</span><span class="slot-phase">· ' + rack.phase + '</span>' +
+        '<div class="slot-empty">Empty</div>' +
+        ampsHtml +
+      '</div>';
+    }).join('');
+
+    // Rack total amps
+    var rackAmps = rack.slots.reduce(function(sum, s) {
+      var o = _ampsForSlot(s);
+      return sum + (o ? (o.current_a || 0) : 0);
+    }, 0);
+    var rackAmpsStr = rackAmps > 0.5 ? rackAmps.toFixed(1) + ' A total' : '';
+
+    return '<div class="rack-col">' +
+      '<div class="rack-hdr"><h3>Rack ' + rack.rack + '</h3>' +
+      '<span>' + rack.phase + ' · ' + rack.slots.length + ' slots' +
+      (rackAmpsStr ? ' · <span style="color:#4dff4d">' + rackAmpsStr + '</span>' : '') +
+      '</span></div>' +
+      '<div class="rack-slots">' + slotsHtml + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Poll PDU every 10s while bench tab is active
+var _pduPollTimer = null;
+function startPduPoll() {
+  loadPduAmps(renderBench);
+  if (_pduPollTimer) clearInterval(_pduPollTimer);
+  _pduPollTimer = setInterval(function(){ loadPduAmps(renderBench); }, 10000);
+}
+function stopPduPoll() {
+  if (_pduPollTimer) { clearInterval(_pduPollTimer); _pduPollTimer = null; }
+}
+
+function selFromBench(id, slotIdx, slotLabel) {
+  // Double-tap: first tap selects, second tap starts scan
+  if (selFromBench._last === id && (Date.now() - selFromBench._t) < 600) {
+    var m = miners.find(function(x){ return x.id===id; });
+    touchSlotForScan(slotIdx, slotLabel, id);
+    selFromBench._last = null;
+  } else {
+    selFromBench._last = id;
+    selFromBench._t = Date.now();
+    showTab('miners');
+    setTimeout(function() { sel(id); }, 100);
+  }
+}
+selFromBench._last = null; selFromBench._t = 0;
+
+function scanSlot(slotIdx, slotLabel, minerId) {
+  touchSlotForScan(slotIdx, slotLabel, minerId);
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+function loadAI() {
+  fetch('/api/settings/ai')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var m = document.getElementById('ai-model');
+      var u = document.getElementById('ai-base-url');
+      if (m && d.model) m.value = d.model;
+      if (u && d.base_url) u.value = d.base_url;
+    }).catch(function() {});
+}
+
+function saveAI() {
+  var key = document.getElementById('ai-key').value.trim();
+  var model = document.getElementById('ai-model').value;
+  var url = document.getElementById('ai-base-url').value.trim();
+  var body = {model: model};
+  if (key) body.openai_api_key = key;
+  if (url) body.base_url = url;
+  fetch('/api/settings/ai', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+    .then(function() { toast('AI settings saved', 'ok'); })
+    .catch(function(e) { toast('Save failed: ' + e.message, 'err'); });
+}
+
+// ── Build channel / version ─────────────────────────────────────────────────
+function loadBuildInfo() {
+  fetch('/api/version').then(function(r){return r.json();}).then(function(d){
+    var ver = document.getElementById('srv-ver');
+    var badge = document.getElementById('srv-channel-badge');
+    var commit = document.getElementById('srv-commit');
+    var sel = document.getElementById('build-channel-select');
+    if (ver) ver.textContent = d.version || '–';
+    if (commit) commit.textContent = d.commit || '–';
+    if (badge) {
+      if (d.channel === 'production') {
+        badge.textContent = 'PRODUCTION';
+        badge.style.background = '#00FF4120';
+        badge.style.color = '#00FF41';
+        badge.style.border = '1px solid #00FF4140';
+      } else {
+        badge.textContent = 'SANDBOX';
+        badge.style.background = '#FF8C0020';
+        badge.style.color = '#FF8C00';
+        badge.style.border = '1px solid #FF8C0040';
+      }
+    }
+    if (sel && d.branch) {
+      sel.value = d.branch === 'main' ? 'main' : 'sandbox';
+    }
+  }).catch(function(){
+    var ver = document.getElementById('srv-ver');
+    if (ver) ver.textContent = 'unknown';
+  });
+}
+
+function switchBuildChannel(channel) {
+  var msg = document.getElementById('channel-switch-msg');
+  if (msg) msg.textContent = 'Switching...';
+  fetch('/api/version/switch', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({channel: channel})
+  }).then(function(r){return r.json();}).then(function(d){
+    if (d.ok) {
+      if (msg) msg.textContent = 'Restarting server... reload in 10s';
+      setTimeout(function(){ location.reload(); }, 10000);
+    } else {
+      if (msg) msg.textContent = 'Error: ' + (d.error || 'unknown');
+    }
+  }).catch(function(){
+    if (msg) msg.textContent = 'Error — check server logs';
+  });
+}
+
+function loadLog() {
+  var el = document.getElementById('log-box');
+  if (!el) return;
+  fetch('/health')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      el.textContent = new Date().toLocaleTimeString() + ' — Server: ' + d.status + '\n' +
+        'Miners: ' + miners.length + '\n' +
+        'Discovery: polling active\n' +
+        'Printer: USB QL-810W';
+    }).catch(function(e) { el.textContent = 'Error: ' + e.message; });
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  try {
+    ws = new WebSocket('ws://' + location.host + '/ws/miners');
+    ws.onmessage = function(e) {
+      try {
+        var msg = JSON.parse(e.data);
+        if (msg.event === 'miner_update') {
+          var d = msg.data;
+          var idx = miners.findIndex(function(m) { return m.id === d.id; });
+          if (idx >= 0) { for (var k in d) miners[idx][k] = d[k]; }
+          else miners.push(d);
+          renderList(); stats();
+          if (selId === d.id && idx >= 0) renderDetail(miners[idx]);
+        }
+
+        // Always-on barcode scan — auto-select matching miner instantly
+        // Skip if scan modal is open (that flow handles the barcode itself via /api/scan/miner)
+        if (msg.event === 'barcode_scanned') {
+          var bc = msg.data;
+          var scanModalOpen = (document.getElementById('barcode-scan-modal') &&
+                              document.getElementById('barcode-scan-modal').style.display === 'flex') ||
+                             (document.getElementById('scan-modal') &&
+                              document.getElementById('scan-modal').style.display === 'flex');
+          if (!scanModalOpen) {
+            if (bc.found && bc.miner_id) {
+              showPopup('success', '\u2705 Machine in System', (bc.model || 'Miner') + ' \u2014 ' + bc.barcode);
+              showTab('miners');
+              _selAfterLoad = bc.miner_id;
+              load();
+            } else {
+              // Unknown serial — save it to selected miner if one is active
+              if (selId) {
+                fetch('/api/miners/' + selId, {
+                  method: 'PATCH',
+                  headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({serial_number: bc.barcode})
+                }).then(function(r){ return r.json(); })
+                  .then(function(d){
+                    if (d.id) {
+                      toast('\u2705 Serial ' + bc.barcode + ' saved to miner #' + selId, 'ok');
+                      load();
+                    } else {
+                      toast('\u26A0 New serial scanned: ' + bc.barcode, 'info');
+                    }
+                  }).catch(function(){ toast('Serial scanned: ' + bc.barcode, 'info'); });
+              } else {
+                toast('\u26A0 Serial scanned but no miner selected: ' + bc.barcode, 'info');
+              }
+            }
+          }
+        }
+      } catch (err) {}
+    };
+    ws.onclose = function() { setTimeout(connectWS, 5000); };
+    ws.onerror = function() { ws.close(); };
+  } catch (e) {}
+}
+
+
+// ── Shelf label printing ────────────────────────────────────────
+var BENCH_LAYOUT_LABELS = {
+  A: {subnet:'192.168.3.x', slots:['AL1-1','AL1-2','AL1-3','AL1-4']},
+  B: {subnet:'192.168.2.x', slots:['BL2-5','BL2-6','BL2-7']},
+  C: {subnet:'192.168.5.x', slots:['CL2-1','CL2-2','CL2-3','CL2-4']},
+  D: {subnet:'192.168.6.x', slots:['DL1-5','DL1-6','DL1-7','DL1-8']}
+};
+
+function printAllShelfLabels() {
+  var html = '<html><head><title>Shelf Labels</title>';
+  html += '<style>';
+  html += 'body{margin:0;padding:0;background:#fff;font-family:monospace;}';
+  html += '.page{page-break-after:always;}';
+  html += '.rack-header{font-size:28pt;font-weight:bold;text-align:center;padding:12pt 0 4pt;border-bottom:3pt solid #000;margin-bottom:8pt;}';
+  html += '.subnet{font-size:11pt;text-align:center;color:#444;margin-bottom:16pt;}';
+  html += '.slots{display:flex;flex-wrap:wrap;gap:16pt;justify-content:center;padding:8pt;}';
+  html += '.slot{border:2pt solid #000;border-radius:6pt;padding:10pt 14pt;text-align:center;width:160pt;break-inside:avoid;}';
+  html += '.slot-label{font-size:20pt;font-weight:bold;margin-bottom:6pt;}';
+  html += '.slot-sub{font-size:9pt;color:#555;margin-bottom:8pt;}';
+  html += '.barcode-area{font-size:9pt;letter-spacing:3pt;font-family:monospace;background:#f5f5f5;padding:4pt 6pt;border-radius:3pt;word-break:break-all;}';
+  html += '@media print{@page{size:A4 portrait;margin:15mm;}button{display:none;}}';
+  html += '</style></head><body>';
+  html += '<div style="text-align:center;padding:8pt;"><button onclick="window.print()" style="font-size:14pt;padding:8pt 20pt;cursor:pointer;margin-bottom:10pt">Print All</button></div>';
+
+  var racks = Object.keys(BENCH_LAYOUT_LABELS);
+  for (var ri = 0; ri < racks.length; ri++) {
+    var rack = racks[ri];
+    var info = BENCH_LAYOUT_LABELS[rack];
+    var isLast = (ri === racks.length - 1);
+    html += '<div class="page">';
+    html += '<div class="rack-header">Rack ' + rack + '</div>';
+    html += '<div class="subnet">Subnet: ' + info.subnet + '</div>';
+    html += '<div class="slots">';
+    for (var si = 0; si < info.slots.length; si++) {
+      var slot = info.slots[si];
+      html += '<div class="slot">';
+      html += '<div class="slot-label">' + slot + '</div>';
+      html += '<div class="slot-sub">Rack ' + rack + ' &bull; ' + info.subnet + '</div>';
+      // Simple text barcode representation — use slot label as scannable value
+      html += '<div class="barcode-area">||| ' + slot + ' |||</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    if (!isLast) html += '</div>';
+    else html += '</div>';
+  }
+  html += '</body></html>';
+
+  var w = window.open('', '_blank', 'width=800,height=900');
+  w.document.write(html);
+  w.document.close();
+}
+
+
+// ── USB HID Barcode Scanner global handler ──────────────────────
+// Scanner sends keystrokes to whatever has focus — we intercept ALL
+// typing and route it to the correct input depending on context.
+var _scannerBuf = '';
+var _scannerTimer = null;
+var _scannerMinLen = 6;
+var _scannerDebounceMs = 120; // scanners finish in <100ms
+
+var _scanInputTimer = null;
+function _scanInputChanged(el) {
+  // Auto-submit scan-manual-input after 400ms pause if value looks like a barcode
+  clearTimeout(_scanInputTimer);
+  var val = el.value.trim();
+  if (val.length >= 6) {
+    _scanInputTimer = setTimeout(function() {
+      if (el.value.trim().length >= 6) {
+        window.submitManualBarcode();
+      }
+    }, 400);
+  }
+}
+
+function _scannerFlush() {
+  var val = _scannerBuf.trim();
+  _scannerBuf = '';
+  if (!val || val.length < _scannerMinLen) return;
+
+  // Is the slot scan modal open?
+  var slotModal = document.getElementById('scan-modal');
+  var bsModal   = document.getElementById('barcode-scan-modal');
+  var slotOpen  = slotModal && slotModal.style.display === 'flex';
+  var bsOpen    = bsModal   && bsModal.style.display === 'flex';
+
+  if (slotOpen) {
+    // Route to the scan-manual-input field and submit
+    var inp = document.getElementById('scan-manual-input');
+    if (inp) {
+      inp.value = val;
+      _scanInputChanged(inp);
+    }
+    return;
+  }
+
+  if (bsOpen) {
+    // Route to the bsm barcode input if it exists
+    var bsInput = document.getElementById('bsm-barcode-input');
+    if (bsInput) { bsInput.value = val; }
+    // trigger existing logic
+    var capEl = document.getElementById('scan-capture');
+    if (capEl) { capEl.value = val; capEl.dispatchEvent(new Event('input', {bubbles:true})); }
+    return;
+  }
+
+  // No modal — check if it's a shelf slot label first (P4)
+  var upperVal = val.toUpperCase().trim();
+  var isSlotLabel = false;
+  if (typeof BENCH_LAYOUT !== 'undefined') {
+    BENCH_LAYOUT.forEach(function(rack) {
+      rack.slots.forEach(function(slot) {
+        if (slot.label.toUpperCase() === upperVal) isSlotLabel = true;
+      });
+    });
+  }
+  if (isSlotLabel) {
+    // Find miner with this location and auto-select it
+    _selectMinerBySlot(upperVal);
+    return;
+  }
+  // Route to global scan-capture hidden input
+  var capEl = document.getElementById('scan-capture');
+  if (capEl) {
+    capEl.value = val;
+    capEl.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+}
+
+function _selectMinerBySlot(slotLabel) {
+  // Look up miner assigned to this slot and select it in the Miners tab
+  fetch('/api/miners')
+    .then(function(r){ return r.json(); })
+    .then(function(all){
+      var match = null;
+      for (var i=0; i<all.length; i++) {
+        var loc = (all[i].location || '').toUpperCase().trim();
+        if (loc === slotLabel) { match = all[i]; break; }
+      }
+      if (match) {
+        showTab('miners');
+        _selAfterLoad = match.id;
+        load();
+        toast('📍 Slot ' + slotLabel + ' → ' + (match.model || 'Miner #' + match.id), 'ok');
+      } else {
+        toast('📍 Slot ' + slotLabel + ': no miner assigned', 'warn');
+      }
+    })
+    .catch(function(){ toast('Slot lookup error', 'err'); });
+}
+
+document.addEventListener('keydown', function(e) {
+  // Ignore: modifier-only, function keys, ctrl/alt/meta combos, tab, escape
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === 'Tab' || e.key === 'Escape' || e.key === 'F1') return;
+  if (e.key.startsWith('F') && e.key.length <= 3) return;
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+
+  // Allow normal typing in visible text inputs/textareas UNLESS scanner pace detected
+  var active = document.activeElement;
+  var isTypeable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active.id !== 'scan-capture';
+
+  if (e.key === 'Enter') {
+    // Enter from scanner = flush buffer
+    if (_scannerBuf.length >= _scannerMinLen) {
+      clearTimeout(_scannerTimer);
+      _scannerFlush();
+      e.preventDefault();
+    }
+    return;
+  }
+
+  if (e.key.length === 1) {
+    // Only intercept if: scan modal is open, OR no focused typeable element
+    var slotOpen = document.getElementById('scan-modal') && document.getElementById('scan-modal').style.display === 'flex';
+    var bsOpen   = document.getElementById('barcode-scan-modal') && document.getElementById('barcode-scan-modal').style.display === 'flex';
+    if (slotOpen || bsOpen || !isTypeable) {
+      _scannerBuf += e.key;
+      clearTimeout(_scannerTimer);
+      _scannerTimer = setTimeout(_scannerFlush, _scannerDebounceMs);
+      if (slotOpen || bsOpen) e.preventDefault(); // don't let it type into modal background
+    }
+  }
+}, true); // capture phase so we get it before any other handlers
+
+
+// ── Printer settings ────────────────────────────────────────────────────────
+function loadPrinterSettings() {
+  fetch('/api/settings')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('printer-identifier');
+      var ml = document.getElementById('printer-model');
+      if (el && d.printer_identifier) el.value = d.printer_identifier;
+      if (ml && d.printer_model) ml.value = d.printer_model;
+    }).catch(function(){});
+}
+
+function savePrinterSettings() {
+  var id = document.getElementById('printer-identifier');
+  var model = document.getElementById('printer-model');
+  if (!id) return;
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      printer_identifier: id.value.trim(),
+      printer_model: model ? model.value : 'QL-810W'
+    })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      var el = document.getElementById('printer-status');
+      if (el) el.textContent = d.message || 'Saved';
+      setTimeout(function(){ if (el) el.textContent = ''; }, 3000);
+    });
+}
+
+function testPrint() {
+  var el = document.getElementById('printer-status');
+  if (el) el.textContent = 'Sending test print...';
+  // Find first miner with a serial and print it
+  var m = miners.find(function(x){ return x.serial_number && x.serial_number.length > 2; });
+  if (!m) { if (el) el.textContent = 'No miner with serial found'; return; }
+  fetch('/api/labels/' + m.id + '/print?force=true', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (el) el.textContent = d.success ? '✅ Printed!' : ('❌ ' + (d.message || d.detail || JSON.stringify(d)));
+      setTimeout(function(){ if (el) el.textContent = ''; }, 5000);
+    }).catch(function(e){ if (el) el.textContent = '❌ ' + e.message; });
+}
+
+function discoverPrinter() {
+  var el = document.getElementById('printer-status');
+  if (el) el.textContent = 'Scanning for printer...';
+  fetch('/api/settings/discover-printer', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.identifier) {
+        var inp = document.getElementById('printer-identifier');
+        if (inp) inp.value = d.identifier;
+        savePrinterSettings();
+        if (el) el.textContent = '✅ Found: ' + d.identifier;
+      } else {
+        if (el) el.textContent = '❌ No printer found. Check USB cable.';
+      }
+      setTimeout(function(){ if (el) el.textContent = ''; }, 5000);
+    }).catch(function(e){ if (el) el.textContent = '❌ ' + e.message; });
+}
+
+
+// ── Auto-configure pool on load ─────────────────────────────────────────────
+var _autoPoolPending = {};
+
+function autoPoolIfNeeded(m) {
+  // Only push if: miner has an IP, no pool configured, and we haven't already pushed this session
+  if (!m || !m.ip_address) return;
+  if (m.pool_url && m.pool_url.indexOf('luxor') >= 0) return;  // already on Luxor
+  if (_autoPoolPending[m.id]) return;  // already in flight
+
+  _autoPoolPending[m.id] = true;
+  toast('Configuring Luxor pool for ' + (m.model || 'miner') + '...', 'info');
+
+  fetch('/api/workers/auto-pool/' + m.id, {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      delete _autoPoolPending[m.id];
+      if (d.skipped) {
+        toast('Pool config skipped: ' + d.reason, 'info');
+        return;
+      }
+      if (d.ok) {
+        toast('Pool set: ' + d.worker, 'ok');
+        // Update local miners array and re-render detail
+        var idx = miners.findIndex(function(x){ return x.id === m.id; });
+        if (idx >= 0) {
+          miners[idx].pool_url = d.pool_url;
+          miners[idx].worker   = d.worker;
+          renderDetail(miners[idx]);
+        }
+      } else {
+        toast('Pool push failed - check miner is reachable', 'warn');
+      }
+    })
+    .catch(function(e) {
+      delete _autoPoolPending[m.id];
+      toast('Pool config error: ' + e.message, 'warn');
+    });
+}
+
+// ── History ─────────────────────────────────────────────────────────────────
+var histMiners = [];
+function loadHistory() {
+  var filter = (document.getElementById('hist-filter') || {}).value || 'all';
+  // Active miners are those with rt_hashrate > 0 OR recently tested (within 24h)
+  // History = miners with no live hashrate, or explicitly archived statuses
+  var HIST_STATUSES = ['needs_repair','parts_unit','ready_to_deploy','offline','archived'];
+  var live = miners.filter(function(m) {
+    var st = m.status || '';
+    var lr = m.last_test_result || '';
+    var hr = m.rt_hashrate || 0;
+    if (hr > 0) return true;  // live hashrate = active
+    if (HIST_STATUSES.includes(st) || HIST_STATUSES.includes(lr)) return false;
+    // If tested in last 8h consider active
+    if (m.last_tested) {
+      var age = (Date.now() - new Date(m.last_tested).getTime()) / 3600000;
+      if (age < 8) return true;
+    }
+    return false;
+  });
+  histMiners = miners.filter(function(m) { return !live.includes(m); });
+  // Also fetch from server for full history
+  fetch('/api/miners?include_offline=true')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var all = Array.isArray(data) ? data : (data.miners || []);
+      var activeIds = miners.map(function(m) { return m.id; });
+      var extra = all.filter(function(m) { return !activeIds.includes(m.id); });
+      histMiners = histMiners.concat(extra);
+      renderHistory(filter);
+    }).catch(function() { renderHistory(filter); });
+}
+function renderHistory(filter) {
+  var el = document.getElementById('history-list');
+  if (!el) return;
+  var list = histMiners;
+  if (filter && filter !== 'all') list = list.filter(function(m) {
+    return (m.status||'') === filter || (m.last_test_result||'') === filter;
+  });
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">No archived miners match this filter.</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(function(m) {
+    var ts = m.last_tested ? new Date(m.last_tested).toLocaleDateString() : 'Never tested';
+    var s = m.status || m.last_test_result || 'unknown';
+    var sc2 = {pass:'bp',ready_to_deploy:'bp',fail:'bf',needs_repair:'bw',parts_unit:'bw'}[s] || 'bn';
+    return '<div class="miner-card" style="margin-bottom:.35em">' +
+      '<div class="mc-row">' +
+        '<span class="mc-id" style="' + (!m.worker ? 'color:#ff9900;font-style:italic' : '') + '">' + (m.worker ? m.worker.split('.').slice(-1)[0] : '⚠ Worker Needed') + '</span>' +
+        '<span class="bdg ' + sc2 + '">' + s.replace('_',' ').toUpperCase() + '</span>' +
+      '</div>' +
+      '<div class="mc-mdl">' + (m.model || m.miner_type || '?') + '</div>' +
+      '<div class="mc-inf">' + m.ip_address + (m.serial_number ? ' · ' + m.serial_number : '') + ' · Last: ' + ts + '</div>' +
+      '<div class="mc-row" style="margin-top:.3em">' +
+        '<button class="btn btn-blue" style="font-size:.7em" onclick="returnToActive(' + m.id + ')">↩ Return to Active</button>' +
+        '<button class="btn btn-gray" style="font-size:.7em" onclick="printLabel(' + m.id + ')">🖨 Label</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function returnToActive(id) {
+  fetch('/api/miners/' + id + '/mark_ready', {method:'POST'})
+    .then(function() { toast('↩ Returned to active', 'ok'); load(); })
+    .catch(function(e) { toast('Error: ' + e.message, 'err'); });
+}
+
+// ── LED Sync ─────────────────────────────────────────────────────────────────
+var LED_IP = '';
+function pingLED() {
+  var ip = document.getElementById('led-ip').value.trim();
+  if (!ip) { toast('Enter ESP32 IP first', 'err'); return; }
+  LED_IP = ip;
+  document.getElementById('led-status').textContent = 'Pinging…';
+  fetch('http://' + ip + '/status', {mode:'cors'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('led-status').innerHTML =
+        '<span style="color:#00cc44">✅ Online</span> · v' + d.version + ' · ' + d.num_leds + 'px · ' + d.rssi + 'dBm';
+      renderLEDSlotGrid(d);
+    })
+    .catch(function(e) {
+      document.getElementById('led-status').innerHTML = '<span style="color:#cc4444">❌ ' + e.message + '</span>';
+    });
+}
+function renderLEDSlotGrid(d) {
+  var el = document.getElementById('led-slot-grid');
+  if (!el) return;
+  // Build rack layout matching BENCH_LAYOUT
+  var RACK_LABELS = [
+    {rack:'A',slots:['AL1-4','AL1-3','AL1-2','AL1-1']},
+    {rack:'B',slots:['BL2-7','BL2-6','BL2-5']},
+    {rack:'C',slots:['CL2-4','CL2-3','CL2-2','CL2-1']},
+    {rack:'D',slots:['DL1-8','DL1-7','DL1-6','DL1-5']},
+  ];
+  var byLoc = {};
+  miners.forEach(function(m) { if (m.location) byLoc[m.location.toUpperCase()] = m; });
+  var slotDefs = [];
+  RACK_LABELS.forEach(function(r) {
+    r.slots.forEach(function(lbl) {
+      slotDefs.push({label: lbl, rack: r.rack});
+    });
+  });
+  var rows = slotDefs.map(function(def, idx) {
+    var m = byLoc[def.label.toUpperCase()];
+    var slotData = (d.slots || [])[idx] || {};
+    var st = slotData.status || 0;
+    var stColors = ['#333','#00cc44','#cc4444','#ff9900','#4da6ff','#444'];
+    var stLabels = ['IDLE','PASS','FAIL','WARN','TEST','OFFL'];
+    var ledPx = (idx * 8);
+    return '<div style="display:flex;align-items:center;gap:.5em;padding:.2em 0;border-bottom:1px solid #111;font-size:.75em">' +
+      '<span style="color:#555;width:2.5em;text-align:right">' + idx + '</span>' +
+      '<span style="color:#4da6ff;width:5em">' + def.label + '</span>' +
+      '<span style="color:#aaa;flex:1">' + (m ? (m.model || m.ct_id || m.ip_address) : '<i style="color:#333">Empty</i>') + '</span>' +
+      '<span style="color:' + stColors[st] + ';width:3.5em;text-align:center;font-size:.9em">' + stLabels[st] + '</span>' +
+      '<span style="color:#333;font-size:.7em">px ' + ledPx + '–' + (ledPx+7) + '</span>' +
+      '<input type="number" id="led-miner-' + idx + '" value="' + (slotData.miner_id || (m ? m.id : -1)) + '" style="width:4em;background:#111;border:1px solid #222;color:#fff;border-radius:3px;padding:.2em;font-size:.9em">' +
+    '</div>';
+  }).join('');
+  el.innerHTML = '<div style="font-size:.7em;color:#555;margin-bottom:.3em">Slot→Miner assignments (drag to reorder once wired)</div>' + rows;
+}
+function pushLEDSlots() {
+  if (!LED_IP) { toast('Ping LED controller first', 'err'); return; }
+  var n = document.querySelectorAll('[id^="led-miner-"]').length;
+  var slots = [];
+  for (var i = 0; i < n; i++) {
+    var el = document.getElementById('led-miner-' + i);
+    slots.push(el ? parseInt(el.value) || -1 : -1);
+  }
+  fetch('http://' + LED_IP + '/slot', {
+    method: 'POST', mode: 'cors',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({slots: slots})
+  }).then(function(r) { return r.json(); })
+    .then(function(d) { toast(d.ok ? '✅ Slots pushed' : '❌ Error', d.ok ? 'ok' : 'err'); })
+    .catch(function(e) { toast('Push failed: ' + e.message, 'err'); });
+}
+function otaLED() {
+  if (!LED_IP) { toast('Ping LED controller first', 'err'); return; }
+  fetch('http://' + LED_IP + '/ota_check', {method: 'POST', mode: 'cors'})
+    .then(function() { toast('OTA check sent', 'info'); })
+    .catch(function(e) { toast('OTA failed: ' + e.message, 'err'); });
+}
+function loadLEDStatus() {
+  var ip = document.getElementById('led-ip');
+  if (ip && ip.value) pingLED();
+}
+
+
+// ── Barcode Scan Flow ──────────────────────────────────────────────────────
+var _scanSlotIdx = -1;
+var _scanSlotLabel = '';
+var _scanMinerId = null;
+var _scanPollInterval = null;
+var LED_HOST = '';   // set from /status after pinging
+
+function touchSlotForScan(slotIdx, slotLabel, minerId) {
+  _scanSlotIdx = slotIdx;
+  _scanSlotLabel = slotLabel;
+  _scanMinerId = minerId;
+  // Show modal
+  document.getElementById('scan-modal').style.display = 'flex';
+  document.getElementById('scan-slot-label').textContent = slotLabel || ('Slot ' + slotIdx);
+  document.getElementById('scan-phase').textContent = 'Flashing LEDs…';
+  document.getElementById('scan-icon').textContent = '💡';
+  document.getElementById('scan-msg').textContent = 'Stand by the miner — watch for the white flash';
+  document.getElementById('scan-result-box').style.display = 'none';
+  document.getElementById('scan-retry-btn').style.display = 'none';
+  // Focus the manual input — scanner types into it like a keyboard
+  setTimeout(function() {
+    var mi = document.getElementById('scan-manual-input');
+    if (mi) { mi.value = ''; mi.focus(); }
+    // Also try the capture strip as backup
+    var cap = document.getElementById('scan-capture');
+    if (cap) { cap.value = ''; }
+  }, 120);
+  // Start scan session
+  fetch('/api/scan/start', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      slot_idx: slotIdx,
+      slot_label: slotLabel,
+      miner_id: minerId || null,
+      led_host: LED_HOST || null,
+    })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) {
+        document.getElementById('scan-phase').textContent = '🟡 Ready — scan the barcode';
+        document.getElementById('scan-icon').textContent = '📷';
+        document.getElementById('scan-msg').textContent = 'Point the scanner at the barcode on the front of the miner';
+        _pollScanResult();
+      } else {
+        document.getElementById('scan-msg').textContent = '❌ ' + (d.detail || JSON.stringify(d));
+      }
+    }).catch(function(e){
+      document.getElementById('scan-msg').textContent = '❌ ' + e.message;
+    });
+}
+
+function _pollScanResult() {
+  clearInterval(_scanPollInterval);
+  var attempts = 0;
+  _scanPollInterval = setInterval(function() {
+    attempts++;
+    if (attempts > 60) { clearInterval(_scanPollInterval); cancelScan(); return; }
+    fetch('/api/scan/result').then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.status === 'done') {
+          clearInterval(_scanPollInterval);
+          _showScanResult(d.result, d.barcode);
+        } else if (d.status === 'cancelled') {
+          clearInterval(_scanPollInterval);
+          setTimeout(function(){ document.getElementById('scan-modal').style.display='none'; }, 1000);
+        }
+      }).catch(function(){});
+  }, 800);
+}
+
+function _showScanResult(result, barcode) {
+  var box = document.getElementById('scan-result-box');
+  var icon = document.getElementById('scan-icon');
+  var phase = document.getElementById('scan-phase');
+  box.style.display = 'block';
+  if (!result) { box.innerHTML = '⏳ Processing…'; return; }
+  if (result.ok) {
+    icon.textContent = result.action === 'created' ? '🆕' : '✅';
+    phase.textContent = result.action === 'confirmed' ? 'Confirmed!' :
+                        result.action === 'created'   ? 'New miner added' :
+                        result.action === 'serial_assigned' ? 'Serial assigned' : 'OK';
+    phase.style.color = '#00cc44';
+    box.innerHTML = '<span style="color:#00cc44">' + result.message + '</span>';
+    if (result.miner) {
+      box.innerHTML += '<br><span style="color:#555">' +
+        (result.miner.model||'Unknown') + ' · ' + (result.miner.ip_address||'') +
+        (result.miner.ip_history && result.miner.ip_history.length ?
+          '<br>Previous IPs: ' + result.miner.ip_history.join(', ') : '') +
+        '</span>';
+    }
+    document.getElementById('scan-retry-btn').style.display = 'none';
+    load();  // refresh miner list
+    setTimeout(function(){ document.getElementById('scan-modal').style.display='none'; load(); }, 5000);
+  } else {
+    icon.textContent = result.mismatch ? '⚠' : '❌';
+    phase.textContent = result.mismatch ? 'Mismatch!' : 'Not found';
+    phase.style.color = result.mismatch ? '#ff9900' : '#cc4444';
+    box.innerHTML = '<span style="color:' + (result.mismatch?'#ff9900':'#cc4444') + '">' +
+      result.message + '</span>';
+    if (result.prompt) {
+      box.innerHTML += '<br><span style="color:#888;font-style:italic">' + result.prompt + '</span>';
+    }
+    document.getElementById('scan-retry-btn').style.display = 'inline-block';
+  }
+}
+
+function cancelScan() {
+  clearInterval(_scanPollInterval);
+  fetch('/api/scan/cancel', {method:'POST'}).catch(function(){});
+  document.getElementById('scan-modal').style.display = 'none';
+}
+
+function retryScan() {
+  touchSlotForScan(_scanSlotIdx, _scanSlotLabel, _scanMinerId);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+load();
+loadPollStatus();
+connectWS();
+setInterval(load, 30000);
+setInterval(loadPollStatus, 15000);
+
+// ═══════════════════════════════════════════════════════
+// IP NUMPAD
+// ═══════════════════════════════════════════════════════
+var _ipTarget = null;
+var _ipVal = '';
+
+function ipNumpadOpen(el) {
+  _ipTarget = el;
+  _ipVal = el.value || '';
+  var lbl = el.getAttribute('data-label') || el.placeholder || 'IP / CIDR';
+  document.getElementById('ip-numpad-label').textContent = lbl;
+  document.getElementById('ip-numpad-display').textContent = _ipVal || '\u00a0';
+  document.getElementById('ip-numpad-overlay').classList.add('show');
+}
+function ipNumpadBgClick(e) {
+  document.getElementById('ip-numpad-overlay').classList.remove('show');
+}
+function ipNumpadKey(k) {
+  _ipVal += k;
+  document.getElementById('ip-numpad-display').textContent = _ipVal;
+}
+function ipNumpadBack() {
+  _ipVal = _ipVal.slice(0, -1);
+  document.getElementById('ip-numpad-display').textContent = _ipVal || '\u00a0';
+}
+function ipNumpadClear() {
+  _ipVal = '';
+  document.getElementById('ip-numpad-display').textContent = '\u00a0';
+}
+function ipNumpadDone() {
+  if (_ipTarget) {
+    _ipTarget.value = _ipVal;
+    _ipTarget.dispatchEvent(new Event('change', {bubbles:true}));
+    _ipTarget.dispatchEvent(new Event('input',  {bubbles:true}));
+  }
+  document.getElementById('ip-numpad-overlay').classList.remove('show');
+}
+
+function attachIpNumpad(root) {
+  root = root || document;
+  var sels = [
+    'input.scan-input[id*="ip"]',
+    'input.scan-input[id*="cidr"]',
+    'input.scan-input[id*="range"]',
+    'input.scan-input[id*="pdu"]',
+    'input.shelf-range-input',
+    '#poll-cidr','#scan-range-start','#scan-range-end',
+    '#set-pdu','#amm-ip','#led-ip','#scan-ip',
+  ];
+  sels.forEach(function(sel) {
+    root.querySelectorAll(sel).forEach(function(el) {
+      if (el.dataset.numpad) return;
+      el.dataset.numpad = '1';
+      el.readOnly = true;
+      el.style.cursor = 'pointer';
+      el.addEventListener('click',  function(e){ e.preventDefault(); ipNumpadOpen(el); });
+      el.addEventListener('focus',  function(e){ e.preventDefault(); el.blur(); ipNumpadOpen(el); });
+      el.addEventListener('touchend', function(e){ e.preventDefault(); ipNumpadOpen(el); });
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', attachIpNumpad);
+new MutationObserver(function(){ attachIpNumpad(document); })
+  .observe(document.body, {childList:true, subtree:true});
+
+
+// ═══════════════════════════════════════════════════════
+// SHELF IP RANGES
+// ═══════════════════════════════════════════════════════
+
+// Load saved ranges from localStorage
+function getShelfRanges() {
+  try { return JSON.parse(localStorage.getItem('shelfRanges') || '{}'); } catch(e){ return {}; }
+}
+function saveShelfRanges(obj) {
+  localStorage.setItem('shelfRanges', JSON.stringify(obj));
+}
+
+function renderShelfRangeGrid() {
+  var grid = document.getElementById('shelf-range-grid');
+  if (!grid) return;
+  var ranges = getShelfRanges();
+
+  grid.innerHTML = BENCH_LAYOUT.map(function(rack) {
+    return rack.slots.map(function(slot) {
+      var key = slot.label.toUpperCase();
+      var saved = ranges[key] || '';
+      return '<div class="shelf-range-card">' +
+        '<h4>' + slot.label + ' <span style="color:#555;font-weight:400;font-size:.85em">PDU outlet ' + slot.outlet + '</span></h4>' +
+        '<label>IP Range (CIDR)</label>' +
+        '<input class="shelf-range-input" data-slot="' + key + '" data-label="' + slot.label + ' IP Range" ' +
+          'placeholder="e.g. 192.168.3.0/28" value="' + escHtml(saved) + '" ' +
+          'onchange="onShelfRangeChange(this)" oninput="onShelfRangeChange(this)">' +
+      '</div>';
+    }).join('');
+  }).join('');
+
+  // Re-attach numpad to new inputs
+  attachIpNumpad(grid);
+}
+
+function onShelfRangeChange(el) {
+  var ranges = getShelfRanges();
+  ranges[el.dataset.slot] = el.value.trim();
+  saveShelfRanges(ranges);
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function scanAllShelfRanges() {
+  var ranges = getShelfRanges();
+  var hasRange = false;
+  BENCH_LAYOUT.forEach(function(rack) {
+    rack.slots.forEach(function(slot) {
+      var cidr = ranges[slot.label.toUpperCase()];
+      if (cidr) {
+        hasRange = true;
+        toast('Scanning ' + slot.label + ' (' + cidr + ')\u2026', 'info');
+        fetch('/api/discovery/scan/cidr', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({cidr: cidr, rack_label: slot.label, outlet: slot.outlet})
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ toast(slot.label + ': found ' + (d.found||0) + ' miners', 'ok'); load(); })
+        .catch(function(e){ toast(slot.label + ' scan error: ' + e.message, 'err'); });
+      }
+    });
+  });
+  if (!hasRange) toast('No IP ranges set. Enter a CIDR for each shelf first.', 'err');
+}
+
+// Render shelf range grid when discovery tab opens
+var _origShowTabForShelves = typeof showTab === 'function' ? showTab : null;
+if (_origShowTabForShelves) {
+  showTab = function(name) {
+    _origShowTabForShelves(name);
+    if (name === 'scan') setTimeout(renderShelfRangeGrid, 50);
+  };
+}
+document.addEventListener('DOMContentLoaded', function() {
+  // Render immediately if scan tab is active
+  if (document.getElementById('page-scan') &&
+      document.getElementById('page-scan').classList.contains('active')) {
+    renderShelfRangeGrid();
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════
+// PRINT SHELF BARCODES
+// ═══════════════════════════════════════════════════════
+function printShelfBarcodes() {
+  var el = document.getElementById('shelf-label-status');
+  if (el) el.textContent = 'Sending to printer\u2026';
+
+  // Build list of all slots from BENCH_LAYOUT
+  var slots = [];
+  BENCH_LAYOUT.forEach(function(rack) {
+    rack.slots.forEach(function(slot) {
+      var ranges = getShelfRanges();
+      slots.push({
+        label: slot.label,
+        rack: rack.rack,
+        phase: rack.phase,
+        outlet: slot.outlet,
+        ip_range: ranges[slot.label.toUpperCase()] || ''
+      });
+    });
+  });
+
+  fetch('/api/labels/shelf-barcodes', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({slots: slots})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var msg = d.ok
+      ? '\u2713 Printed ' + (d.printed||slots.length) + ' labels'
+      : '\u274c ' + (d.error || 'Print failed');
+    if (el) el.textContent = msg;
+    toast(msg, d.ok ? 'ok' : 'err');
+  })
+  .catch(function(e){
+    if (el) el.textContent = '\u274c ' + e.message;
+    toast('Print error: ' + e.message, 'err');
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// SLOT DIAGNOSTIC
+// ═══════════════════════════════════════════════════════
+var _diagSlot = null;
+var _diagPollTimer = null;
+var _diagCycleTimer = null;
+
+function startDiagnostic(slotLabel, ip) {
+  _diagSlot = slotLabel.toUpperCase();
+  document.getElementById('diag-slot-badge').textContent = slotLabel;
+  document.getElementById('diag-status-text').textContent = 'Starting diagnostic\u2026';
+  document.getElementById('diag-log').innerHTML = '';
+  document.getElementById('diag-serial-section').style.display = 'none';
+  document.getElementById('diag-cycle-bar').style.display = 'none';
+  document.getElementById('diag-cycle-label').style.display = 'none';
+  document.getElementById('diag-cancel-btn').style.display = '';
+  document.getElementById('diag-modal').classList.add('show');
+
+  fetch('/api/diag/slot/' + encodeURIComponent(slotLabel) + '/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ip: ip})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() { diagPollStart(); })
+  .catch(function(e) {
+    document.getElementById('diag-status-text').textContent = 'Error: ' + e.message;
+  });
+}
+
+function diagPollStart() {
+  if (_diagPollTimer) clearInterval(_diagPollTimer);
+  _diagPollTimer = setInterval(diagPoll, 2000);
+  diagPoll();
+}
+
+function diagPoll() {
+  if (!_diagSlot) return;
+  fetch('/api/diag/slot/' + encodeURIComponent(_diagSlot) + '/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { diagUpdateUI(d); })
+    .catch(function() {});
+}
+
+var STATUS_LABELS = {
+  'starting':        'Starting\u2026',
+  'scanning':        '\U0001F50D Probing IP\u2026',
+  'awaiting_serial': '\u26A0\uFE0F Waiting for serial barcode scan',
+  'cycling_1':       '\u26A1 Power cycling (attempt 1/3)\u2026',
+  'cycling_2':       '\u26A1 Power cycling (attempt 2/3)\u2026',
+  'cycling_3':       '\u26A1 Power cycling (attempt 3/3)\u2026',
+  'resolved':        '\u2705 Miner identified and linked',
+  'diagnosed':       '[!!] Diagnostic complete \u2014 sticker printed',
+  'timed_out':       '\u231B Timed out waiting for serial',
+  'cancelled':       'Cancelled',
+};
+
+function diagUpdateUI(d) {
+  var status = d.status || 'unknown';
+  var statusEl = document.getElementById('diag-status-text');
+  statusEl.textContent = STATUS_LABELS[status] || status;
+  statusEl.className = 'diag-status s-' + status.split('_')[0];
+
+  // Log
+  var logEl = document.getElementById('diag-log');
+  logEl.innerHTML = (d.log || []).map(function(l) {
+    return '<div>' + escHtmlDiag(l) + '</div>';
+  }).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+
+  // Serial prompt
+  var serialSec = document.getElementById('diag-serial-section');
+  serialSec.style.display = status === 'awaiting_serial' ? 'block' : 'none';
+  if (status === 'awaiting_serial') {
+    setTimeout(function() {
+      var inp = document.getElementById('diag-serial-input');
+      if (inp) inp.focus();
+    }, 100);
+  }
+
+  // Cycle countdown
+  var bar = document.getElementById('diag-cycle-bar');
+  var fill = document.getElementById('diag-cycle-fill');
+  var cycleLbl = document.getElementById('diag-cycle-label');
+  if (status.startsWith('cycling') && d.cycle_resume_at) {
+    bar.style.display = 'block';
+    cycleLbl.style.display = 'block';
+    var now = Date.now() / 1000;
+    var remaining = Math.max(0, d.cycle_resume_at - now);
+    var pct = Math.min(100, (remaining / 180) * 100);
+    fill.style.width = pct + '%';
+    var mins = Math.floor(remaining / 60);
+    var secs = Math.floor(remaining % 60);
+    cycleLbl.textContent = 'Waiting ' + mins + ':' + (secs<10?'0':'') + secs + ' for miner to boot\u2026';
+  } else {
+    bar.style.display = 'none';
+    cycleLbl.style.display = 'none';
+  }
+
+  // Terminal states
+  if (['resolved', 'diagnosed', 'timed_out', 'cancelled'].includes(status)) {
+    clearInterval(_diagPollTimer);
+    _diagPollTimer = null;
+    document.getElementById('diag-cancel-btn').style.display = 'none';
+    if (status === 'resolved' || status === 'diagnosed') {
+      setTimeout(function() { load(); renderBench(); }, 500);
+    }
+  }
+}
+
+function diagSubmitSerial() {
+  var serial = (document.getElementById('diag-serial-input').value || '').trim();
+  if (!serial) { toast('Enter a serial number', 'err'); return; }
+  fetch('/api/diag/slot/' + encodeURIComponent(_diagSlot) + '/serial', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({serial: serial})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    document.getElementById('diag-serial-section').style.display = 'none';
+    toast('Serial submitted', 'ok');
+  })
+  .catch(function(e) { toast('Error: ' + e.message, 'err'); });
+}
+
+function diagCancel() {
+  if (!_diagSlot) return;
+  fetch('/api/diag/slot/' + encodeURIComponent(_diagSlot) + '/cancel', {method:'POST'});
+  diagClose();
+}
+
+function diagClose() {
+  clearInterval(_diagPollTimer);
+  _diagPollTimer = null;
+  document.getElementById('diag-modal').classList.remove('show');
+  _diagSlot = null;
+}
+
+function escHtmlDiag(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Unmatched IP tracking (populated by shelf scan) ─────────────────────────
+var _unmatchedIps = {};   // slot_label -> ip
+
+function registerUnmatchedIp(slotLabel, ip) {
+  _unmatchedIps[slotLabel.toUpperCase()] = ip;
+  renderBench();  // re-render so the button appears
+}
+
+// Patch renderBench empty slot to show diagnostic button if IP known
+var _origRenderBenchForDiag = renderBench;
+renderBench = function() {
+  _origRenderBenchForDiag();
+  // After render, inject diag buttons on empty slots with known IPs
+  BENCH_LAYOUT.forEach(function(rack) {
+    rack.slots.forEach(function(slot) {
+      var ip = _unmatchedIps[slot.label.toUpperCase()];
+      if (!ip) return;
+      // Find the slot element (empty slots have slot-empty div)
+      var grid = document.getElementById('bench-grid');
+      if (!grid) return;
+      var slots = grid.querySelectorAll('.slot:not(.occupied)');
+      slots.forEach(function(el) {
+        var lbl = el.querySelector('.slot-outlet');
+        if (lbl && lbl.textContent === slot.label) {
+          // Replace "Empty" with IP + diagnostic button
+          var emptyDiv = el.querySelector('.slot-empty');
+          if (emptyDiv) {
+            emptyDiv.innerHTML =
+              '<div style="font-size:.65em;color:#4da6ff;margin-bottom:.2em">' + ip + '</div>' +
+              '<button class="btn btn-red" style="font-size:.62em;padding:.2em .4em;margin-top:.1em" ' +
+              'onclick="event.stopPropagation();startDiagnostic(\'' + slot.label + '\',\'' + ip + '\')">' +
+              '&#x26A0; Diagnose</button>';
+          }
+        }
+      });
+    });
+  });
+};
+
+
+// ── Scanner capture input handler ────────────────────────────────────────────
+(function() {
+  function _initScanCapture() {
+    var el = document.getElementById('scan-capture');
+    if (!el || el._scanBound) return;
+    el._scanBound = true;
+
+    el.addEventListener('keydown', function(e) {
+      // Scanner sends Enter after the barcode string
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        var barcode = el.value.trim().toUpperCase();
+        el.value = '';
+        if (barcode.length > 0) {
+          _submitCapturedBarcode(barcode);
+        }
+      }
+    });
+
+    // Re-focus if user clicks elsewhere while modal is open
+    document.addEventListener('click', function() {
+      var modal = document.getElementById('scan-modal');
+      if (modal && modal.style.display === 'flex') {
+        var captureEl = document.getElementById('scan-capture');
+        if (captureEl && document.activeElement !== document.getElementById('scan-manual-input')) {
+          captureEl.focus();
+        }
+      }
+    });
+  }
+
+  function _submitCapturedBarcode(barcode) {
+    // Show it in the modal
+    var msgEl = document.getElementById('scan-msg');
+    if (msgEl) msgEl.textContent = 'Scanned: ' + barcode;
+    var phaseEl = document.getElementById('scan-phase');
+    if (phaseEl) { phaseEl.textContent = '⚡ Processing…'; }
+
+    // Post to inject endpoint (puts into server queue)
+    fetch('/api/scan/inject?barcode=' + encodeURIComponent(barcode), {method: 'POST'})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          if (phaseEl) phaseEl.textContent = '✓ Barcode sent to server';
+          // Poll immediately for result
+          _pollScanResult && _pollScanResult();
+        }
+      })
+      .catch(function(e) {
+        if (msgEl) msgEl.textContent = 'Error: ' + e.message;
+      });
+  }
+
+  window.submitManualBarcode = function() {
+    var mi = document.getElementById('scan-manual-input');
+    if (!mi || !mi.value.trim()) return;
+    var barcode = mi.value.trim().toUpperCase();
+    mi.value = '';
+    _submitCapturedBarcode(barcode);
+  };
+
+  // Also handle Enter in the manual input
+  document.addEventListener('DOMContentLoaded', function() {
+    _initScanCapture();
+    var mi = document.getElementById('scan-manual-input');
+    if (mi) {
+      mi.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault();
+          window.submitManualBarcode();
+        }
+      });
+    }
+  });
+})();
+
+
+// ── Listen for IP (miner IP button press) ────────────────────────────────────
+function listenForIP(minerId, currentSlot) {
+  // Show slot confirmation popup first
+  var existing = document.getElementById('ip-listen-modal');
+  if (existing) existing.remove();
+
+  var slotInput = currentSlot ||
+    (BENCH_LAYOUT.reduce(function(found, rack) {
+      if (found) return found;
+      var s = rack.slots.find(function(s) {
+        var m = miners.find(function(x) { return x.id === minerId; });
+        return m && (m.location||'').toUpperCase() === s.label;
+      });
+      return s ? s.label : null;
+    }, null)) || '';
+
+  var modalHtml = '<div id="ip-listen-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.88);' +
+    'z-index:9100;display:flex;align-items:center;justify-content:center">' +
+    '<div style="background:#111;border:1px solid #1a3322;border-radius:10px;padding:1.4em;' +
+    'max-width:380px;width:92%;text-align:center">' +
+    '<div style="font-size:1.8em;margin-bottom:.3em">&#x1F4F6;</div>' +
+    '<div style="font-weight:700;font-size:.95em;margin-bottom:.6em">Listening for Miner IP</div>' +
+    '<div style="font-size:.78em;color:#aaa;margin-bottom:.8em">Confirm the bench slot, then press the <b>IP button</b> on the miner. ' +
+    'The miner will broadcast its IP and we will capture it automatically.</div>' +
+    '<div style="margin-bottom:.8em">' +
+      '<label style="font-size:.75em;color:#888;display:block;margin-bottom:.3em">Bench Slot</label>' +
+      '<input id="ip-listen-slot" type="text" value="' + slotInput + '" ' +
+        'placeholder="e.g. AL1-2" autocapitalize="characters" autocomplete="off" ' +
+        'style="width:100%;background:#1a1a1a;border:2px solid #00cc66;border-radius:5px;' +
+        'color:#fff;font-size:1em;padding:.5em .7em;font-family:monospace;box-sizing:border-box">' +
+    '</div>' +
+    '<div id="ip-listen-status" style="font-size:.78em;color:#00cc66;min-height:1.5em;margin-bottom:.8em"></div>' +
+    '<div style="display:flex;gap:.5em;justify-content:center">' +
+      '<button class="btn btn-gray" onclick="closeIPListenModal()">Cancel</button>' +
+      '<button class="btn btn-green" id="ip-listen-start-btn" onclick="startIPListen(' + minerId + ')">Start Listening</button>' +
+    '</div>' +
+    '</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+var _ipListenTimer = null;
+var _ipListenAttempts = 0;
+
+function startIPListen(minerId) {
+  var slotEl = document.getElementById('ip-listen-slot');
+  var slotLabel = slotEl ? slotEl.value.trim().toUpperCase() : '';
+  var statusEl = document.getElementById('ip-listen-status');
+  var startBtn = document.getElementById('ip-listen-start-btn');
+
+  if (!slotLabel) { statusEl.textContent = 'Please enter a slot label'; return; }
+
+  if (startBtn) startBtn.disabled = true;
+  if (slotEl) slotEl.disabled = true;
+  _ipListenAttempts = 0;
+
+  function poll() {
+    _ipListenAttempts++;
+    if (_ipListenAttempts > 60) {  // 60s timeout
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ff6666">Timed out. Try again.</span>';
+      if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Retry'; }
+      return;
+    }
+    if (statusEl) statusEl.textContent = 'Listening... (' + _ipListenAttempts + 's) Press the IP button on the miner now.';
+
+    // Poll the scan endpoint for a new IP appearing on the subnet for this slot
+    fetch('/api/bench/slot/' + encodeURIComponent(slotLabel) + '/listen_ip', {method:'POST'})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ip) {
+          // Got an IP — confirm and save
+          clearTimeout(_ipListenTimer);
+          if (statusEl) statusEl.innerHTML = '<span style="color:#00cc44">&#x2705; Found: ' + d.ip + '</span>';
+          // Save to miner + confirm slot
+          fetch('/api/miners/' + minerId, {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ip_address: d.ip, location: slotLabel})
+          }).then(function(r){ return r.json(); })
+            .then(function(m){
+              if (m.id) {
+                toast('\u2705 IP ' + d.ip + ' saved to ' + (m.serial_number||'miner') + ' at ' + slotLabel, 'ok');
+                load();
+                setTimeout(closeIPListenModal, 2000);
+              }
+            });
+        } else if (d.status === 'waiting') {
+          _ipListenTimer = setTimeout(poll, 1000);
+        } else {
+          _ipListenTimer = setTimeout(poll, 1000);
+        }
+      }).catch(function() {
+        _ipListenTimer = setTimeout(poll, 1000);
+      });
+  }
+  poll();
+}
+
+function closeIPListenModal() {
+  clearTimeout(_ipListenTimer);
+  var el = document.getElementById('ip-listen-modal');
+  if (el) el.remove();
+}
+
+
+// ── PDU Tab ───────────────────────────────────────────────────────────────────
+var _pduPollTimer = null;
+var _pduCurrentPhase = 'L1';
+
+function showPduPhase(phase) {
+  _pduCurrentPhase = phase;
+  ['L1','L2','L3'].forEach(function(p) {
+    var tab = document.getElementById('pdu-tab-' + p);
+    var grid = document.getElementById('pdu-phase-' + p);
+    if (tab) tab.classList.toggle('active', p === phase);
+    if (grid) grid.style.display = p === phase ? 'grid' : 'none';
+  });
+}
+
+function loadPDU() {
+  var errEl = document.getElementById('pdu-error');
+  if (errEl) errEl.style.display = 'none';
+  fetch('/api/pdu/snapshot')
+    .then(function(r) { return r.json(); })
+    .then(function(d) { renderPDU(d); })
+    .catch(function(e) {
+      if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'PDU error: ' + e.message; }
+    });
+}
+
+function renderPDU(d) {
+  // Phase summary bar
+  var phEl = document.getElementById('pdu-phases');
+  if (phEl && d.phases) {
+    phEl.innerHTML = d.phases.map(function(p) {
+      var alarm = p.current_alarm || p.voltage_alarm;
+      var bg = alarm ? '#3a0000' : '#0a1a0a';
+      var border = alarm ? '#cc2200' : '#1a3a1a';
+      return '<div style="flex:1;background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:.4em .5em;font-size:.72em">' +
+        '<div style="font-weight:700;color:' + (alarm ? '#ff4444' : '#44dd88') + ';margin-bottom:.15em">L' + p.phase + (alarm ? ' !! ALARM' : '') + '</div>' +
+        '<div>' + p.voltage_v.toFixed(1) + 'V &bull; ' + p.current_a.toFixed(1) + 'A &bull; ' + p.power_w.toFixed(0) + 'W</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // Split outlets by phase name prefix (L1-xxx, L2-xxx, L3-xxx)
+  if (!d.outlets) return;
+  var byPhase = {'L1':[], 'L2':[], 'L3':[]};
+  d.outlets.forEach(function(o) {
+    var ph = (o.name || '').match(/^L([123])/i);
+    if (ph) byPhase['L'+ph[1]].push(o);
+    else byPhase['L1'].push(o);  // fallback
+  });
+
+  ['L1','L2','L3'].forEach(function(phase) {
+    var outEl = document.getElementById('pdu-phase-' + phase);
+    if (!outEl) return;
+    var outlets = byPhase[phase];
+    if (!outlets.length) { outEl.innerHTML = '<div style="color:#444;font-size:.8em;padding:.5em">No outlets on ' + phase + '</div>'; return; }
+    outEl.innerHTML = outlets.map(function(o) {
+    var on = o.on;
+    var alarm = o.current_alarm;
+    var hasLoad = o.power_w > 10;
+    var bg = alarm ? '#3a0000' : (on ? (hasLoad ? '#0a1a10' : '#0e0e14') : '#111');
+    var border = alarm ? '#cc2200' : (on ? (hasLoad ? '#1a4a2a' : '#2a2a40') : '#222');
+    var statusColor = alarm ? '#ff4444' : (on ? (hasLoad ? '#44dd88' : '#4488ff') : '#555');
+    var statusText = alarm ? 'ALARM' : (on ? (hasLoad ? 'ON' : 'ON-idle') : 'OFF');
+
+    // Find miner at this slot
+    var slotLabel = o.name ? o.name.toUpperCase() : '';
+    var miner = miners.find(function(m) { return (m.location||'').toUpperCase() === slotLabel; });
+    var minerInfo = miner ? '<div style="font-size:.7em;color:#aaa;margin-top:.15em">' +
+      (miner.model ? miner.model.replace('Antminer ','') : '') +
+      (miner.serial_number ? ' \u00b7 ' + miner.serial_number.slice(-6) : '') +
+      '</div>' : '';
+
+    return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:7px;padding:.55em .65em">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2em">' +
+        '<span style="font-weight:700;font-size:.82em">' + (o.name || 'Out ' + o.outlet) + '</span>' +
+        '<span style="font-size:.72em;color:' + statusColor + ';font-weight:700">' + statusText + '</span>' +
+      '</div>' +
+      '<div style="font-size:.72em;color:#aaa">' +
+        o.current_a.toFixed(2) + 'A &nbsp; ' + o.power_w.toFixed(0) + 'W' +
+      '</div>' +
+      minerInfo +
+      '<div style="display:flex;gap:.3em;margin-top:.35em">' +
+        '<button class="btn" style="flex:1;font-size:.65em;padding:.25em 0;background:#0a2218;border-color:#00aa44;color:#00cc66" ' +
+          'onclick="pduOutlet(' + o.outlet + ',\'on\')">ON</button>' +
+        '<button class="btn" style="flex:1;font-size:.65em;padding:.25em 0;background:#2a0000;border-color:#aa2200;color:#ff4444" ' +
+          'onclick="pduOutlet(' + o.outlet + ',\'off\')">OFF</button>' +
+        '<button class="btn" style="flex:1;font-size:.65em;padding:.25em 0;background:#1a1a00;border-color:#aaaa00;color:#dddd00" ' +
+          'onclick="pduOutlet(' + o.outlet + ',\'cycle\')">CYCLE</button>' +
+      '</div>' +
+    '</div>';
+    }).join('');
+  });
+}
+
+
+// ── Force Print (bypass smart_test check) ────────────────────────────────
+function forcePrint(id) {
+  setActionResult('Sending to printer...');
+  fetch('/api/labels/' + id + '/print?force=true', {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.did_print || d.success) {
+        setActionResult('\u2705 Label printed');
+        toast('Label printed', 'ok');
+      } else {
+        setActionResult('\u274C Print failed: ' + (d.detail || JSON.stringify(d)));
+        toast('Print failed', 'err');
+      }
+    })
+    .catch(function(e) { setActionResult('\u274C ' + e.message); });
+}
+
+// ── Confirm by Flash LED (blink miner LEDs to verify identity) ──────────
+function confirmByFlash(id, ip) {
+  toast('Flashing LEDs on ' + ip + '...', 'info');
+  fetch('/api/miners/' + id + '/flash', {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok || d.success) {
+        toast('\uD83D\uDCA1 LEDs flashing - confirm it is the right miner', 'ok');
+        setActionResult('\uD83D\uDCA1 LEDs flashing on ' + ip + ' - watch for blinking lights');
+      } else {
+        // Fallback: just tell operator
+        setActionResult('Flash not supported - manually verify ' + ip + ' is the correct miner');
+        toast('Verify manually: ' + ip, 'info');
+      }
+    })
+    .catch(function() {
+      setActionResult('Flash not supported - manually verify ' + ip + ' is the correct miner');
+    });
+}
+
+// ── Confirm by IP Button Press ────────────────────────────────────────────
+function confirmByIP(id, ip) {
+  var slot = (miners.find(function(m){return m.id===id;})||{}).location || '';
+  listenForIP(id, slot);
+}
+
+
+function pduOutlet(n, action) {
+  fetch('/api/pdu/outlet/' + n + '/' + action, {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      toast((action==='on' ? 'ON' : action==='off' ? 'OFF' : 'CYCLE') + ' outlet ' + n + (d.ok ? ' OK' : ' FAILED'), d.ok ? 'ok' : 'err');
+      setTimeout(loadPDU, 600);
+    })
+    .catch(function(e) { toast('PDU error: ' + e.message, 'err'); });
+}
+
+function pduAllOff() {
+  if (!confirm('Turn ALL outlets OFF?')) return;
+  fetch('/api/pdu/all/off', {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { toast(d.ok ? 'All outlets OFF' : 'Failed', d.ok ? 'ok' : 'err'); setTimeout(loadPDU, 600); });
+}
+
+function pduAllOn() {
+  fetch('/api/pdu/all/on', {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { toast(d.ok ? 'All outlets ON' : 'Failed', d.ok ? 'ok' : 'err'); setTimeout(loadPDU, 1000); })
+    .catch(function(e) { toast('PDU error: ' + e.message, 'err'); });
+}
+
+function pduCycleAll() {
+  if (!confirm('Cycle ALL outlets? (OFF 10s then ON)')) return;
+  toast('Cycling all outlets…', 'info');
+  fetch('/api/pdu/all/cycle', {method:'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) { toast(d.ok ? 'All outlets cycled' : 'Cycle failed', d.ok ? 'ok' : 'err'); setTimeout(loadPDU, 1000); })
+    .catch(function(e) { toast('PDU error: ' + e.message, 'err'); });
+}
+
+
+
+// ── Chat tab ────────────────────────────────────────────────────────────────
+var _chatHistory = [];
+var _chatBusy = false;
+var CLAW_GATEWAY = 'http://100.85.100.85:18789';
+var CLAW_TOKEN   = 'b567cf381c2db1911654e6f51c78ee5bcdd7eee15c5cb0e6';
+
+function chatClear() {
+  _chatHistory = [];
+  document.getElementById('chat-messages').innerHTML = '';
+}
+
+function _chatAppend(role, text) {
+  var box = document.getElementById('chat-messages');
+  var isUser = role === 'user';
+  var d = document.createElement('div');
+  d.style.cssText = 'max-width:82%;padding:.55em .85em;border-radius:10px;font-size:.9em;line-height:1.5;white-space:pre-wrap;word-break:break-word;' +
+    (isUser
+      ? 'align-self:flex-end;background:#1a4a8a;color:#eee;'
+      : 'align-self:flex-start;background:#1a1a1a;color:#ddd;border:1px solid #2a2a2a;');
+  d.textContent = text;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
+function chatSend() {
+  if (_chatBusy) return;
+  var inp = document.getElementById('chat-input');
+  var msg = (inp.value || '').trim();
+  if (!msg) return;
+  inp.value = '';
+  _chatAppend('user', msg);
+  _chatHistory.push({role:'user', content: msg});
+  _chatBusy = true;
+  var thinking = _chatAppend('assistant', '…');
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      messages: _chatHistory,
+      stream: false
+    })
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Gateway error ' + r.status);
+    return r.json();
+  })
+  .then(function(d) {
+    var reply = d.reply || d.content || JSON.stringify(d);
+    thinking.textContent = reply;
+    _chatHistory.push({role:'assistant', content: reply});
+    _chatBusy = false;
+  })
+  .catch(function(e) {
+    thinking.textContent = '⚠ Could not reach AI: ' + e.message;
+    thinking.style.color = '#f88';
+    _chatHistory.pop();
+    _chatBusy = false;
+  });
+}
+
+
+  function showDiagTicket(minerId, detail) {
+    var m   = document.getElementById('diag-ticket-modal');
+    var model  = detail.model || 'Unknown';
+    var serial = detail.serial || detail.serial_number || '(no serial)';
+    var loc    = detail.location || '(no slot)';
+
+    document.getElementById('dtr-miner').textContent =
+      model + '  ·  S/N: ' + serial + '  ·  ' + loc;
+
+    // Section 1: errors + warnings
+    var errEl  = document.getElementById('dtr-errors');
+    var warnEl = document.getElementById('dtr-warnings');
+    errEl.innerHTML  = '';
+    warnEl.innerHTML = '';
+    var errors   = detail.hw_errors   || detail.errors   || [];
+    var warnings = detail.warnings || [];
+    errors.forEach(function(e)   { var li=document.createElement('li'); li.textContent=e; errEl.appendChild(li); });
+    warnings.forEach(function(w) { var li=document.createElement('li'); li.textContent=w; warnEl.appendChild(li); });
+    if (!errors.length && !warnings.length) {
+      var li=document.createElement('li'); li.textContent='No specific faults detected by readiness check.'; errEl.appendChild(li);
+    }
+
+    // Section 2: causes from AI issue summary
+    var causesEl = document.getElementById('dtr-causes');
+    var causes = detail.ai_issue || detail.ai_issue_summary || detail.issue_summary || '';
+    if (!causes && detail.fault_summary) causes = detail.fault_summary;
+    if (!causes) causes = 'See AI tab on miner detail for diagnosis.';
+    // Format as bullets if multi-sentence
+    var sentences = causes.split(/\.\s+/).filter(function(s){ return s.trim(); });
+    if (sentences.length > 1) {
+      causesEl.innerHTML = '<ul style="margin:0;padding-left:1.2em">' +
+        sentences.map(function(s){ return '<li>' + s.trim().replace(/\.$/,'') + '</li>'; }).join('') +
+        '</ul>';
+    } else {
+      causesEl.innerHTML = causes;
+    }
+
+    // Section 3: repair steps from instructions array
+    var stepsEl = document.getElementById('dtr-steps');
+    stepsEl.innerHTML = '';
+    var instrs = detail.instructions || detail.worker_instructions || [];
+    // Filter out the STOP header line and blank lines
+    instrs = instrs.filter(function(s){
+      return s && !s.startsWith('STOP:') && s.trim() !== '';
+    });
+    // If no instructions from server, build from ai_fix
+    if (!instrs.length) {
+      var fix = detail.ai_fix || detail.ai_suggested_fix || detail.next_action || '';
+      if (fix) {
+        fix.split(/[\n]|\d+\)/).filter(function(s){ return s.trim(); })
+          .forEach(function(s){ instrs.push(s.trim()); });
+      }
+    }
+    if (!instrs.length) instrs = ['Review AI tab for detailed repair guidance.'];
+    instrs.forEach(function(step) {
+      var li = document.createElement('li');
+      // clean up leading numbering like "  1." or "     -"
+      li.textContent = step.replace(/^\s*[\d]+\.\s*/, '').replace(/^\s*[-•]\s*/, '').trim();
+      stepsEl.appendChild(li);
+    });
+
+    // Buttons
+    document.getElementById('dtr-scan-btn').onclick = function() {
+      closeDiagTicket(); scanMinerLabel(minerId);
+    };
+    document.getElementById('dtr-force-btn').onclick = function() {
+      closeDiagTicket(); printLabel(minerId, true);
+    };
+
+    m.style.display = 'flex';
+  }
+
+  function closeDiagTicket() {
+    var m = document.getElementById('diag-ticket-modal');
+    if (m) m.style.display = 'none';
+  }
+</script>
+
+<!-- Add-miner modal (shown when free scan finds unknown barcode) -->
+<div id="add-miner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:200;align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:1.4em 1.6em;
+    width:min(92vw,420px);color:#fff">
+    <div style="font-size:1.1em;font-weight:bold;margin-bottom:.3em">⚠ Miner Not in Database</div>
+    <div style="font-size:.8em;color:#888;margin-bottom:.8em">
+      Barcode scanned: <span id="amm-barcode" style="color:#ff9900;font-family:monospace"></span>
+    </div>
+    <div style="display:grid;gap:.5em;margin-bottom:.8em">
+      <input id="amm-ip"     class="scan-input" placeholder="IP Address (e.g. 10.0.0.27)" />
+      <input id="amm-model"  class="scan-input" placeholder="Model (e.g. Antminer S19 Pro)" />
+      <input id="amm-worker" class="scan-input" placeholder="Worker name (e.g. CTM-001)" />
+      <select id="amm-status" class="scan-input">
+        <option value="ready_to_deploy">Ready to Deploy</option>
+        <option value="needs_repair">Needs Repair</option>
+        <option value="parts_unit">Parts Unit</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:.5em">
+      <button class="btn btn-blue" style="flex:2;font-size:.95em;padding:.55em 0"
+        onclick="submitAddMiner()">➕ Add to Database</button>
+      <button class="btn btn-gray" style="flex:1;font-size:.95em;padding:.55em 0"
+        onclick="closeAddMinerModal()">Cancel</button>
+    </div>
+    <div id="amm-result" style="margin-top:.6em;font-size:.75em;min-height:1.2em;color:#aaa"></div>
+  </div>
+</div>
+
+
+<!-- Manual S/N entry modal -->
+<div id="sn-entry-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.88);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;
+    padding:1.4em 1.6em;width:min(92vw,380px);color:#fff">
+    <div style="font-size:1.05em;font-weight:bold;margin-bottom:.5em">
+      📝 Enter Serial Number
+    </div>
+    <div style="font-size:.78em;color:#666;margin-bottom:.8em">
+      Type the serial number from the sticker on the miner,<br>or scan the barcode if scanner is working.
+    </div>
+    <input id="sn-entry-input" class="scan-input" style="width:100%;font-size:1em;
+      padding:.5em;margin-bottom:.8em;font-family:monospace"
+      placeholder="e.g. BHBxxxxxxxxxxxxx"
+      oninput="this.value=this.value.toUpperCase()" />
+    <div style="display:flex;gap:.5em">
+      <button class="btn btn-blue" style="flex:2;font-size:.95em;padding:.55em 0"
+        onclick="submitSNEntry()">✅ Save S/N</button>
+      <button class="btn btn-gray" style="flex:1;font-size:.95em;padding:.55em 0"
+        onclick="closeSNModal()">Cancel</button>
+    </div>
+    <div id="sn-entry-result" style="margin-top:.5em;font-size:.75em;min-height:1em;color:#aaa"></div>
+  </div>
+</div>
+
+
+<div id="ip-numpad-overlay" onclick="ipNumpadBgClick(event)">
+  <div class="ip-numpad-box" onclick="event.stopPropagation()">
+    <div class="ip-numpad-label" id="ip-numpad-label">IP / CIDR</div>
+    <div class="ip-numpad-display" id="ip-numpad-display">&nbsp;</div>
+    <div class="ip-numpad-grid">
+      <button ontouchstart="ipNumpadKey('1')" onclick="ipNumpadKey('1')">1</button>
+      <button ontouchstart="ipNumpadKey('2')" onclick="ipNumpadKey('2')">2</button>
+      <button ontouchstart="ipNumpadKey('3')" onclick="ipNumpadKey('3')">3</button>
+      <button ontouchstart="ipNumpadKey('4')" onclick="ipNumpadKey('4')">4</button>
+      <button ontouchstart="ipNumpadKey('5')" onclick="ipNumpadKey('5')">5</button>
+      <button ontouchstart="ipNumpadKey('6')" onclick="ipNumpadKey('6')">6</button>
+      <button ontouchstart="ipNumpadKey('7')" onclick="ipNumpadKey('7')">7</button>
+      <button ontouchstart="ipNumpadKey('8')" onclick="ipNumpadKey('8')">8</button>
+      <button ontouchstart="ipNumpadKey('9')" onclick="ipNumpadKey('9')">9</button>
+      <button class="ip-numpad-dot" ontouchstart="ipNumpadKey('.')" onclick="ipNumpadKey('.')">.</button>
+      <button ontouchstart="ipNumpadKey('0')" onclick="ipNumpadKey('0')">0</button>
+      <button class="ip-numpad-slash" ontouchstart="ipNumpadKey('/')" onclick="ipNumpadKey('/')">/</button>
+    </div>
+    <div class="ip-numpad-actions">
+      <button class="ip-numpad-clear" ontouchstart="ipNumpadClear()" onclick="ipNumpadClear()">Clear</button>
+      <button class="ip-numpad-back" ontouchstart="ipNumpadBack()" onclick="ipNumpadBack()">&#x232B;</button>
+      <button class="ip-numpad-ok" ontouchstart="ipNumpadDone()" onclick="ipNumpadDone()">Done &#x2713;</button>
+    </div>
+  </div>
+</div>
+
+<div id="diag-modal" onclick="if(event.target===this)diagClose()">
+  <div class="diag-box">
+    <div class="diag-header">
+      <h3>&#x26A0;&#xFE0F; Slot Diagnostic</h3>
+      <span class="diag-slot-badge" id="diag-slot-badge">--</span>
+      <button onclick="diagClose()" style="background:none;border:none;color:#555;font-size:1.2em;cursor:pointer;padding:.1em .3em">&#x2715;</button>
+    </div>
+
+    <div class="diag-status" id="diag-status-text">Starting…</div>
+
+    <!-- cycle countdown bar -->
+    <div class="diag-cycle-bar" id="diag-cycle-bar" style="display:none">
+      <div class="diag-cycle-fill" id="diag-cycle-fill" style="width:100%"></div>
+    </div>
+    <div id="diag-cycle-label" style="font-size:.68em;color:#ff9900;margin-bottom:.4em;display:none"></div>
+
+    <!-- serial scan prompt -->
+    <div id="diag-serial-section" style="display:none">
+      <p style="font-size:.72em;color:#ffaa00;margin:.3em 0">
+        &#x1F4F7; Scan the miner serial barcode at this slot, or type it below:
+      </p>
+      <div class="diag-serial-row">
+        <input id="diag-serial-input" class="scan-input" placeholder="Serial number…"
+               style="flex:1;font-size:.85em" onkeydown="if(event.key==='Enter')diagSubmitSerial()">
+        <button class="btn btn-blue" onclick="diagSubmitSerial()">Submit</button>
+      </div>
+    </div>
+
+    <!-- log -->
+    <div class="diag-log" id="diag-log"></div>
+
+    <div class="diag-actions">
+      <button class="btn btn-gray" onclick="diagClose()">Close</button>
+      <button class="btn btn-red" id="diag-cancel-btn" onclick="diagCancel()"
+              style="display:none">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="page-chat" class="page" style="flex-direction:column;padding:0;background:#0a0a0a">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:.6em 1em;background:#111;border-bottom:1px solid #1a1a1a;flex-shrink:0">
+    <span style="font-weight:700;color:#4da6ff;font-size:1.05em">💬 AI Assistant — Claw</span>
+    <button class="btn btn-gray" style="font-size:.7em;padding:.3em .8em" onclick="chatClear()">🗑 Clear</button>
+  </div>
+  <div id="chat-messages" style="flex:1;overflow-y:auto;padding:1em;display:flex;flex-direction:column;gap:.7em"></div>
+  <div style="display:flex;gap:.5em;padding:.7em;background:#111;border-top:1px solid #1a1a1a;flex-shrink:0">
+    <textarea id="chat-input" rows="2"
+      style="flex:1;background:#1a1a1a;border:1px solid #333;border-radius:6px;color:#eee;padding:.5em .7em;font-size:.95em;resize:none;font-family:inherit"
+      placeholder="Ask me anything about the miners or kiosk…"
+      onkeydown="if((event.key==='Enter')&&!event.shiftKey){event.preventDefault();chatSend();}"></textarea>
+    <button class="btn btn-blue" style="align-self:flex-end;padding:.55em 1.2em" onclick="chatSend()">Send</button>
+  </div>
+</div>
+
+<!-- Barcode Scan S/N Modal -->
+<div id="barcode-scan-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#111;border:2px solid #4da6ff;border-radius:12px;padding:1.6em 1.8em;width:88%;max-width:360px;text-align:center">
+    <div style="font-size:1.1em;font-weight:700;color:#4da6ff;margin-bottom:.5em">&#128247; Scan Serial Number</div>
+    <div id="bsm-status" style="font-size:.95em;color:#4da6ff;min-height:1.8em;margin-bottom:.6em">&#9203; Waiting for scanner&#8230; aim at barcode</div>
+    <div style="font-size:2.4em;margin-bottom:.4em">&#9632;</div>
+    <div style="font-size:.78em;color:#666;margin-bottom:.8em">Seconds remaining: <span id="bsm-countdown" style="color:#aaa;font-weight:700">30</span></div>
+    <div style="display:flex;gap:.5em;margin-bottom:.8em">
+      <input id="bsm-barcode-input" type="text"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        placeholder="Or type S/N here + Enter"
+        style="flex:1;background:#1a1a1a;border:2px solid #333;border-radius:5px;color:#fff;font-size:.95em;padding:.5em .7em;font-family:monospace"
+        onkeydown="if(event.key==='Enter'){_bsmSubmitManual();}"
+        oninput="_bsmInputChanged(this)">
+      <button class="btn btn-blue" onclick="_bsmSubmitManual()" style="flex-shrink:0;padding:.5em .8em">Submit</button>
+    </div>
+    <button class="btn btn-gray" onclick="closeScanModal()" style="width:100%;padding:.5em">&#10005; Cancel</button>
+  </div>
+</div>
+
+<!-- Diagnostic Ticket Modal -->
+<div id="diag-ticket-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9100;overflow-y:auto;align-items:flex-start;justify-content:center;padding:1em 0">
+  <div style="background:#0e0e0e;border:2px solid #cc2200;border-radius:10px;padding:1.4em 1.6em;max-width:480px;width:94%;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8em">
+      <div>
+        <div style="font-size:1em;font-weight:700;color:#ff4444">&#9888; DIAGNOSTIC REPORT</div>
+        <div id="dtr-miner" style="font-size:.75em;color:#888;margin-top:.2em"></div>
+      </div>
+      <button onclick="closeDiagTicket()" style="background:none;border:1px solid #333;color:#aaa;border-radius:5px;padding:.3em .7em;font-size:.85em">&#10005;</button>
+    </div>
+
+    <!-- Section 1: System Diagnosis -->
+    <div style="margin-bottom:1em">
+      <div style="font-size:.8em;font-weight:700;color:#ff6644;border-bottom:1px solid #2a0a0a;padding-bottom:.3em;margin-bottom:.5em">&#128270; SYSTEM DIAGNOSIS</div>
+      <ul id="dtr-errors" style="margin:0;padding-left:1.2em;font-size:.78em;color:#ffaaaa;line-height:1.7"></ul>
+      <ul id="dtr-warnings" style="margin:.4em 0 0;padding-left:1.2em;font-size:.75em;color:#ffbb55;line-height:1.7"></ul>
+    </div>
+
+    <!-- Section 2: Likely Causes -->
+    <div style="margin-bottom:1em">
+      <div style="font-size:.8em;font-weight:700;color:#ffaa33;border-bottom:1px solid #2a1a00;padding-bottom:.3em;margin-bottom:.5em">&#9889; LIKELY CAUSES</div>
+      <div id="dtr-causes" style="font-size:.78em;color:#ffcc88;line-height:1.7"></div>
+    </div>
+
+    <!-- Section 3: Repair Steps -->
+    <div style="margin-bottom:1.2em">
+      <div style="font-size:.8em;font-weight:700;color:#44cc88;border-bottom:1px solid #0a2a1a;padding-bottom:.3em;margin-bottom:.5em">&#128295; REPAIR STEPS</div>
+      <ol id="dtr-steps" style="margin:0;padding-left:1.4em;font-size:.78em;color:#aaffcc;line-height:1.8"></ol>
+    </div>
+
+    <div style="display:flex;gap:.5em;flex-wrap:wrap;justify-content:center">
+      <button onclick="closeDiagTicket()" style="background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:6px;padding:.5em 1em;font-size:.82em">&#10005; Dismiss</button>
+      <button id="dtr-scan-btn" onclick="" style="background:#004499;border:1px solid #0066cc;color:#fff;border-radius:6px;padding:.5em 1em;font-size:.82em">&#128247; Scan S/N</button>
+      <button id="dtr-force-btn" onclick="" style="background:#550000;border:1px solid #cc2200;color:#fff;border-radius:6px;padding:.5em 1em;font-size:.82em">&#9889; Force Print</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
